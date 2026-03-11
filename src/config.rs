@@ -51,6 +51,10 @@ pub struct AiConfig {
 
     #[serde(default = "default_ai_model")]
     pub model: String,
+
+    /// Optional base URL override (for custom endpoints, proxies, etc.)
+    #[serde(default)]
+    pub base_url: Option<String>,
 }
 
 impl Default for AiConfig {
@@ -58,6 +62,7 @@ impl Default for AiConfig {
         Self {
             provider: default_ai_provider(),
             model: default_ai_model(),
+            base_url: None,
         }
     }
 }
@@ -274,12 +279,29 @@ impl Config {
         }
 
         let template = r#"[github]
-# Token from env var GITHUB_TOKEN or WSHM_TOKEN (never stored in config)
+# Token from env var GITHUB_TOKEN or WSHM_TOKEN, or `gh auth token` (never stored in config)
 
 [ai]
 provider = "anthropic"
 model = "claude-sonnet-4-20250514"
-# API key from env var ANTHROPIC_API_KEY (never stored in config)
+# base_url = "https://custom-endpoint.example.com/v1/chat/completions"
+#
+# Supported providers:
+#   anthropic  → ANTHROPIC_API_KEY
+#   openai     → OPENAI_API_KEY
+#   google     → GOOGLE_API_KEY or GEMINI_API_KEY
+#   mistral    → MISTRAL_API_KEY
+#   groq       → GROQ_API_KEY
+#   deepseek   → DEEPSEEK_API_KEY
+#   xai        → XAI_API_KEY
+#   together   → TOGETHER_API_KEY
+#   fireworks  → FIREWORKS_API_KEY
+#   perplexity → PERPLEXITY_API_KEY
+#   cohere     → COHERE_API_KEY or CO_API_KEY
+#   openrouter → OPENROUTER_API_KEY
+#   ollama     → no key needed (local)
+#   azure      → AZURE_OPENAI_API_KEY + AZURE_OPENAI_ENDPOINT
+#   custom     → WSHM_AI_API_KEY + base_url
 
 [triage]
 enabled = true
@@ -320,17 +342,6 @@ full_sync_interval_hours = 24
             .or_else(|_| std::env::var("GITHUB_TOKEN"))
             .or_else(|_| gh_auth_token())
             .context("No GitHub token found. Set GITHUB_TOKEN, WSHM_TOKEN, or authenticate with `gh auth login`")
-    }
-
-    pub fn ai_api_key(&self) -> Result<String> {
-        match self.ai.provider.as_str() {
-            "anthropic" => std::env::var("ANTHROPIC_API_KEY")
-                .context("Set ANTHROPIC_API_KEY environment variable"),
-            "openai" => {
-                std::env::var("OPENAI_API_KEY").context("Set OPENAI_API_KEY environment variable")
-            }
-            other => anyhow::bail!("Unknown AI provider: {other}"),
-        }
     }
 }
 
