@@ -1,5 +1,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+🌐 **English** | [Français](README.fr.md) | [Español](README.es.md)
+
 # wshm (wishmaster)
 
 > Your repo's wish is my command.
