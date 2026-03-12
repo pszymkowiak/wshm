@@ -94,4 +94,24 @@ impl Client {
 
         Ok(number)
     }
+
+    /// Request reviewers on a pull request.
+    pub async fn request_reviewers(&self, pr_number: u64, reviewers: &[String]) -> Result<()> {
+        let url = format!(
+            "https://api.github.com/repos/{}/{}/pulls/{}/requested_reviewers",
+            self.owner, self.repo, pr_number
+        );
+
+        let body = serde_json::json!({
+            "reviewers": reviewers,
+        });
+
+        self.octocrab
+            ._post(&url, Some(&body))
+            .await
+            .context("Failed to request reviewers on PR")?;
+
+        debug!("Requested reviewers {:?} on PR #{}", reviewers, pr_number);
+        Ok(())
+    }
 }

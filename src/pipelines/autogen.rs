@@ -145,6 +145,12 @@ pub async fn run(config: &Config, db: &Database, gh: &GhClient, args: &FixArgs) 
 
     match create_result {
         Ok(pr_number) => {
+            if !config.fix.reviewers.is_empty() {
+                if let Err(e) = gh.request_reviewers(pr_number, &config.fix.reviewers).await {
+                    tracing::warn!("Failed to request reviewers: {e:#}");
+                }
+            }
+
             let draft_label = if config.fix.draft_pr { " (draft)" } else { "" };
             println!("Opened PR #{pr_number}{draft_label}: {pr_title}");
             let comment = format!(

@@ -274,6 +274,10 @@ pub struct FixConfig {
     /// Create PRs as draft (require manual review before merge)
     #[serde(default = "default_true")]
     pub draft_pr: bool,
+
+    /// Auto-assign these reviewers to generated PRs
+    #[serde(default)]
+    pub reviewers: Vec<String>,
 }
 
 impl Default for FixConfig {
@@ -285,6 +289,7 @@ impl Default for FixConfig {
             trusted_authors_only: true,
             scan_diff: true,
             draft_pr: true,
+            reviewers: Vec::new(),
         }
     }
 }
@@ -555,6 +560,8 @@ full_sync_interval_hours = 24
 # scan_diff = true               # Scan generated code for suspicious patterns
 # draft_pr = true                # Create PRs as draft (require human review)
 
+# reviewers = ["username"]       # Auto-assign reviewers to generated PRs
+
 # [update]
 # enabled = false                        # Enable automatic update checks in daemon mode
 # interval_hours = 6                     # Check interval
@@ -686,5 +693,18 @@ mod tests {
         let (owner, repo) = parse_github_url("https://github.com/user/project").unwrap();
         assert_eq!(owner, "user");
         assert_eq!(repo, "project");
+    }
+
+    #[test]
+    fn test_fix_config_reviewers_default_empty() {
+        let config: FixConfig = toml::from_str("").unwrap();
+        assert!(config.reviewers.is_empty());
+    }
+
+    #[test]
+    fn test_fix_config_reviewers_parsed() {
+        let config: FixConfig =
+            toml::from_str(r#"reviewers = ["alice", "bob"]"#).unwrap();
+        assert_eq!(config.reviewers, vec!["alice", "bob"]);
     }
 }
