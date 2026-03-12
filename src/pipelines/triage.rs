@@ -179,6 +179,13 @@ async fn triage_issue(
     Ok(classification)
 }
 
+fn will_auto_fix(c: &IssueClassification, config: &Config) -> bool {
+    config.triage.auto_fix
+        && c.is_simple_fix
+        && c.category == "bug"
+        && c.confidence >= config.triage.auto_fix_confidence
+}
+
 fn format_triage_comment(c: &IssueClassification, config: &Config) -> String {
     let mut comment = config.branding.header();
 
@@ -214,7 +221,11 @@ fn format_triage_comment(c: &IssueClassification, config: &Config) -> String {
     ));
 
     if c.is_simple_fix {
-        comment.push_str("\n> 💡 This looks like a **simple fix** that could be auto-resolved. Use `/wshm fix` to attempt it.\n");
+        if will_auto_fix(c, config) {
+            comment.push_str("\n> 🔧 This looks like a **trivial fix** — attempting auto-fix now. A draft PR will be opened for review.\n");
+        } else {
+            comment.push_str("\n> 💡 This looks like a **simple fix** that could be auto-resolved. Use `/wshm fix` to attempt it.\n");
+        }
     }
 
     if let Some(ref dup) = c.is_duplicate_of {
