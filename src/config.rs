@@ -262,6 +262,18 @@ pub struct FixConfig {
     /// Extra env var names to forward into Docker containers
     #[serde(default)]
     pub secret_env: Vec<String>,
+
+    /// Only auto-fix issues from trusted authors (collaborators with write+)
+    #[serde(default = "default_true")]
+    pub trusted_authors_only: bool,
+
+    /// Scan generated diff for suspicious patterns before committing
+    #[serde(default = "default_true")]
+    pub scan_diff: bool,
+
+    /// Create PRs as draft (require manual review before merge)
+    #[serde(default = "default_true")]
+    pub draft_pr: bool,
 }
 
 impl Default for FixConfig {
@@ -270,6 +282,9 @@ impl Default for FixConfig {
             tool: default_fix_tool(),
             docker_image: default_fix_image(),
             secret_env: Vec::new(),
+            trusted_authors_only: true,
+            scan_diff: true,
+            draft_pr: true,
         }
     }
 }
@@ -534,6 +549,11 @@ auto_resolve_confidence = 0.85
 [sync]
 interval_minutes = 5
 full_sync_interval_hours = 24
+
+[fix]
+# trusted_authors_only = true   # Only auto-fix issues from repo collaborators
+# scan_diff = true               # Scan generated code for suspicious patterns
+# draft_pr = true                # Create PRs as draft (require human review)
 
 # [update]
 # enabled = false                        # Enable automatic update checks in daemon mode

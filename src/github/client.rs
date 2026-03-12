@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use octocrab::Octocrab;
+use tracing::debug;
 
 use crate::config::Config;
 
@@ -22,5 +23,75 @@ impl Client {
             owner: config.repo_owner.clone(),
             repo: config.repo_name.clone(),
         })
+    }
+
+    /// Check if a user is a collaborator (write access or above) on the repo.
+    pub async fn is_collaborator(&self, username: &str) -> Result<bool> {
+        let url = format!(
+            "https://api.github.com/repos/{}/{}/collaborators/{}/permission",
+            self.owner, self.repo, username
+        );
+
+        let response = self
+            .octocrab
+            ._get(&url)
+            .await;
+
+        match response {
+            Ok(resp) => {
+                let body = self.octocrab.body_to_string(resp).await.unwrap_or_default();
+                let json: serde_json::Value = serde_json::from_str(&body).unwrap_or_default();
+                let permission = json["permission"].as_str().unwrap_or("none");
+                debug!("User {username} permission: {permission}");
+                Ok(matches!(permission, "admin" | "write" | "maintain"))
+            }
+            Err(_) => {
+                // 404 = not a collaborator
+                Ok(false)
+            }
+        }
+    }
+
+    /// Create a draft pull request, returns the PR number.
+    pub async fn create_draft_pr(
+        &self,
+        title: &str,
+        body: &str,
+        head: &str,
+        base: &str,
+    ) -> Result<u64> {
+        let pr_body = serde_json::json!({
+            "title": title,
+            "body": body,
+            "head": head,
+            "base": base,
+            "draft": true,
+        });
+
+        let url = format!(
+            "https://api.github.com/repos/{}/{}/pulls",
+            self.owner, self.repo
+        );
+
+        let response = self
+            .octocrab
+            ._post(&url, Some(&pr_body))
+            .await
+            .context("Failed to create draft pull request")?;
+
+        let response_body = self
+            .octocrab
+            .body_to_string(response)
+            .await
+            .context("Failed to read create PR response")?;
+
+        let pr_json: serde_json::Value =
+            serde_json::from_str(&response_body).context("Failed to parse create PR response")?;
+
+        let number = pr_json["number"]
+            .as_u64()
+            .context("Missing PR number in response")?;
+
+        Ok(number)
     }
 }
