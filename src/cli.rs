@@ -21,6 +21,17 @@ pub struct Cli {
     /// Override detected repo (owner/repo)
     #[arg(long, global = true)]
     pub repo: Option<String>,
+
+    /// Log format: text or json
+    #[arg(long, global = true, default_value = "text", env = "WSHM_LOG_FORMAT")]
+    pub log_format: LogFormat,
+}
+
+#[derive(Clone, Debug, Default, clap::ValueEnum)]
+pub enum LogFormat {
+    #[default]
+    Text,
+    Json,
 }
 
 #[derive(Subcommand)]

@@ -13,15 +13,26 @@ mod login;
 mod pipelines;
 mod update;
 
-use cli::{Cli, Command};
+use cli::{Cli, Command, LogFormat};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .init();
-
     let cli = Cli::parse();
+
+    let filter = EnvFilter::from_default_env();
+    match cli.log_format {
+        LogFormat::Json => {
+            tracing_subscriber::fmt()
+                .with_env_filter(filter)
+                .json()
+                .init();
+        }
+        LogFormat::Text => {
+            tracing_subscriber::fmt()
+                .with_env_filter(filter)
+                .init();
+        }
+    }
 
     // Inject stored credentials from .wshm/credentials into env
     login::inject_credentials();
