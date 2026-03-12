@@ -42,9 +42,19 @@ pub enum SlashCommand {
 /// Uses the branding command_prefix (default: "/wshm").
 /// Returns None if no command found.
 pub fn parse(comment_body: &str, prefix: &str) -> Option<SlashCommand> {
+    // Support both /wshm and @wshm (and custom prefix variants)
+    let at_prefix = if let Some(name) = prefix.strip_prefix('/') {
+        format!("@{name}")
+    } else {
+        format!("@{prefix}")
+    };
+
     for line in comment_body.lines() {
         let trimmed = line.trim();
-        if let Some(rest) = trimmed.strip_prefix(prefix) {
+        let rest = trimmed
+            .strip_prefix(prefix)
+            .or_else(|| trimmed.strip_prefix(&at_prefix));
+        if let Some(rest) = rest {
             let parts: Vec<&str> = rest.split_whitespace().collect();
             let cmd = match parts.first().map(|s| s.to_lowercase()) {
                 Some(ref c) if c == "triage" || c == "retriage" => SlashCommand::Triage,
