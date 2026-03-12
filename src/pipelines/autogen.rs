@@ -52,8 +52,19 @@ pub async fn run(config: &Config, db: &Database, gh: &GhClient, args: &FixArgs) 
     let tool = resolve_tool(config, args);
     let branch = format!("wshm/fix-{}", issue.number);
 
+    // ICM: recall past fix attempts and context for this issue
+    let icm_context = crate::icm::recall_context(
+        &format!("auto-fix issue {} {}", issue.title, config.repo_slug()),
+        5,
+    );
+
     // Build the prompt from issue context
-    let prompt = build_fix_prompt(&issue.title, issue.body.as_deref().unwrap_or(""));
+    let mut prompt = build_fix_prompt(&issue.title, issue.body.as_deref().unwrap_or(""));
+    if !icm_context.is_empty() {
+        prompt.push_str(&format!(
+            "\n\n## Past fix context (from memory)\n{icm_context}"
+        ));
+    }
 
     println!("Issue #{}: {}", issue.number, issue.title);
     println!("Tool: {}", tool.name());
@@ -168,10 +179,36 @@ pub async fn run(config: &Config, db: &Database, gh: &GhClient, args: &FixArgs) 
                 config.branding.footer("Auto-fixed"),
             );
             gh.comment_issue(issue.number, &comment).await?;
+
+            // ICM: store successful fix for future context
+            crate::icm::store(
+                &format!("autofix-{}", config.repo_slug()),
+                &format!(
+                    "Issue #{} '{}' → auto-fixed with {} → PR #{pr_number}",
+                    issue.number,
+                    issue.title,
+                    tool.name(),
+                ),
+                "medium",
+                &["autofix", tool.name()],
+            );
         }
         Err(e) => {
             tracing::error!("Failed to create PR: {e:#}");
             println!("Changes are on branch `{branch}`. Create the PR manually.");
+
+            // ICM: store failed attempt for future context
+            crate::icm::store(
+                &format!("autofix-{}", config.repo_slug()),
+                &format!(
+                    "Issue #{} '{}' → auto-fix with {} succeeded but PR creation failed: {e}",
+                    issue.number,
+                    issue.title,
+                    tool.name(),
+                ),
+                "medium",
+                &["autofix", "error"],
+            );
         }
     }
 

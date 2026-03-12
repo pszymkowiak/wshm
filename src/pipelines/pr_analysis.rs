@@ -118,7 +118,19 @@ async fn analyze_pr(
         }
     };
 
-    let user_prompt = pr_analyze::build_user_prompt(pr, diff.as_deref());
+    // ICM: recall past PR analysis context
+    let icm_context = crate::icm::recall_context(
+        &format!("pr analysis {} {}", pr.title, config.repo_slug()),
+        5,
+    );
+
+    let mut user_prompt = pr_analyze::build_user_prompt(pr, diff.as_deref());
+    if !icm_context.is_empty() {
+        user_prompt.push_str(&format!(
+            "\n\n## Past PR analysis context (from memory)\n{icm_context}"
+        ));
+    }
+
     let analysis: PrAnalysis = ai.analyze(pr_analyze::SYSTEM, &user_prompt).await?;
 
     // Store in DB
@@ -144,6 +156,17 @@ async fn analyze_pr(
         )?;
         Ok(())
     })?;
+
+    // ICM: store PR analysis for future context
+    crate::icm::store(
+        &format!("pr-analysis-{}", config.repo_slug()),
+        &format!(
+            "PR #{} '{}' → {} (risk: {}, type: {})",
+            pr.number, pr.title, analysis.summary, analysis.risk_level, analysis.pr_type,
+        ),
+        "low",
+        &["pr-analysis", &analysis.pr_type, &analysis.risk_level],
+    );
 
     if apply {
         if !analysis.suggested_labels.is_empty() {

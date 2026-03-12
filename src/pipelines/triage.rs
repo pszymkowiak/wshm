@@ -122,12 +122,43 @@ async fn triage_issue(
     existing_issues: &[Issue],
     apply: bool,
 ) -> Result<IssueClassification> {
-    let user_prompt = issue_classify::build_user_prompt(issue, existing_issues);
+    // ICM: recall past triage decisions and feedback for context
+    let icm_context = crate::icm::recall_context(
+        &format!(
+            "triage issue classification {} {}",
+            issue.title,
+            config.repo_slug()
+        ),
+        5,
+    );
+
+    let mut user_prompt = issue_classify::build_user_prompt(issue, existing_issues);
+    if !icm_context.is_empty() {
+        user_prompt.push_str(&format!(
+            "\n\n## Past triage context (from memory)\n{icm_context}"
+        ));
+    }
+
     let classification: IssueClassification =
         ai.classify(issue_classify::SYSTEM, &user_prompt).await?;
 
     // Store result in DB
     db.upsert_triage_result(&classification, issue.number)?;
+
+    // ICM: store triage decision for future context
+    crate::icm::store(
+        &format!("triage-{}", config.repo_slug()),
+        &format!(
+            "Issue #{} '{}' → {} (confidence: {:.0}%, priority: {})",
+            issue.number,
+            issue.title,
+            classification.category,
+            classification.confidence * 100.0,
+            classification.priority.as_deref().unwrap_or("unset"),
+        ),
+        "low",
+        &["triage", &classification.category],
+    );
 
     if apply && classification.confidence >= config.triage.auto_fix_confidence {
         // Apply labels
