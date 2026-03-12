@@ -261,15 +261,18 @@ fn gather_data(db: &Database, repo_name: &str) -> Result<ReportData> {
         )?;
         let rows = stmt.query_map([], |row| {
             let number: u64 = row.get(0)?;
-            Ok((number, PrRow {
+            Ok((
                 number,
-                title: row.get(1)?,
-                risk_level: row.get(2)?,
-                pr_type: row.get(3)?,
-                summary: row.get(4)?,
-                updated_at: row.get(5)?,
-                linked_issues: Vec::new(),
-            }))
+                PrRow {
+                    number,
+                    title: row.get(1)?,
+                    risk_level: row.get(2)?,
+                    pr_type: row.get(3)?,
+                    summary: row.get(4)?,
+                    updated_at: row.get(5)?,
+                    linked_issues: Vec::new(),
+                },
+            ))
         })?;
         let mut results: Vec<PrRow> = Vec::new();
         for row in rows {
@@ -413,9 +416,7 @@ fn gather_data(db: &Database, repo_name: &str) -> Result<ReportData> {
 
     Ok(ReportData {
         repo: repo_name.to_string(),
-        generated_at: chrono::Utc::now()
-            .format("%Y-%m-%d %H:%M UTC")
-            .to_string(),
+        generated_at: chrono::Utc::now().format("%Y-%m-%d %H:%M UTC").to_string(),
         open_issues: open_issues.len(),
         untriaged: untriaged.len(),
         open_prs: open_prs.len(),
@@ -455,14 +456,8 @@ fn render_markdown(d: &ReportData) -> String {
         "| Oldest PR | #{} ({} days) |\n",
         d.sla.oldest_pr_number, d.sla.oldest_pr_days
     ));
-    md.push_str(&format!(
-        "| PRs > 7 days | {} |\n",
-        d.sla.prs_over_7d
-    ));
-    md.push_str(&format!(
-        "| PRs > 30 days | {} |\n",
-        d.sla.prs_over_30d
-    ));
+    md.push_str(&format!("| PRs > 7 days | {} |\n", d.sla.prs_over_7d));
+    md.push_str(&format!("| PRs > 30 days | {} |\n", d.sla.prs_over_30d));
     md.push_str(&format!(
         "| Avg issue age | {:.1} days |\n",
         d.sla.avg_issue_age_days
@@ -471,18 +466,23 @@ fn render_markdown(d: &ReportData) -> String {
         "| Oldest issue | #{} ({} days) |\n",
         d.sla.oldest_issue_number, d.sla.oldest_issue_days
     ));
-    md.push_str(&format!(
-        "| Issues > 7 days | {} |\n",
-        d.sla.issues_over_7d
-    ));
+    md.push_str(&format!("| Issues > 7 days | {} |\n", d.sla.issues_over_7d));
     md.push_str(&format!(
         "| Issues > 30 days | {} |\n\n",
         d.sla.issues_over_30d
     ));
 
     // Separate linked vs standalone issues
-    let linked_issues: Vec<&TriageRow> = d.triage_results.iter().filter(|t| !t.linked_prs.is_empty()).collect();
-    let standalone_issues: Vec<&TriageRow> = d.triage_results.iter().filter(|t| t.linked_prs.is_empty()).collect();
+    let linked_issues: Vec<&TriageRow> = d
+        .triage_results
+        .iter()
+        .filter(|t| !t.linked_prs.is_empty())
+        .collect();
+    let standalone_issues: Vec<&TriageRow> = d
+        .triage_results
+        .iter()
+        .filter(|t| t.linked_prs.is_empty())
+        .collect();
 
     // Linked Issues & PRs (grouped)
     if !linked_issues.is_empty() {
@@ -511,10 +511,16 @@ fn render_markdown(d: &ReportData) -> String {
             // Show linked PRs
             for pr_num in &t.linked_prs {
                 // Find link info
-                if let Some(link) = d.pr_issue_links.iter().find(|l| l.pr_number == *pr_num && l.issue_number == t.number) {
+                if let Some(link) = d
+                    .pr_issue_links
+                    .iter()
+                    .find(|l| l.pr_number == *pr_num && l.issue_number == t.number)
+                {
                     // Find queue info for this PR
                     let queue_info = d.queue.iter().find(|q| q.number == *pr_num);
-                    let mergeable = queue_info.map(|q| q.mergeable.as_str()).unwrap_or("unknown");
+                    let mergeable = queue_info
+                        .map(|q| q.mergeable.as_str())
+                        .unwrap_or("unknown");
                     let score = queue_info.map(|q| q.score).unwrap_or(0);
                     let breakdown = queue_info.map(|q| q.breakdown.as_str()).unwrap_or("");
                     md.push_str(&format!(
@@ -535,9 +541,7 @@ fn render_markdown(d: &ReportData) -> String {
     // Standalone Issues (no linked PR)
     if !standalone_issues.is_empty() {
         md.push_str("## Issues (no linked PR)\n\n");
-        md.push_str(
-            "| # | Title | Category | Confidence | Priority | +1 | Activity | Summary |\n",
-        );
+        md.push_str("| # | Title | Category | Confidence | Priority | +1 | Activity | Summary |\n");
         md.push_str("|---|-------|----------|-----------|----------|-----|----------|--------|\n");
         for t in &standalone_issues {
             let reactions_str = if t.reactions_plus1 > 0 {
@@ -561,12 +565,14 @@ fn render_markdown(d: &ReportData) -> String {
     }
 
     // PR Analysis (standalone PRs not linked to issues)
-    let standalone_prs: Vec<&PrRow> = d.pr_analyses.iter().filter(|p| p.linked_issues.is_empty()).collect();
+    let standalone_prs: Vec<&PrRow> = d
+        .pr_analyses
+        .iter()
+        .filter(|p| p.linked_issues.is_empty())
+        .collect();
     if !standalone_prs.is_empty() {
         md.push_str("## PRs (no linked issue)\n\n");
-        md.push_str(
-            "| # | Title | Type | Risk | Activity | Summary |\n",
-        );
+        md.push_str("| # | Title | Type | Risk | Activity | Summary |\n");
         md.push_str("|---|-------|------|------|----------|--------|\n");
         for p in &standalone_prs {
             md.push_str(&format!(
@@ -585,9 +591,7 @@ fn render_markdown(d: &ReportData) -> String {
     // Merge Queue
     if !d.queue.is_empty() {
         md.push_str("## Merge Queue\n\n");
-        md.push_str(
-            "| # | Title | Score | Breakdown | CI | Mergeable | Last Activity |\n",
-        );
+        md.push_str("| # | Title | Score | Breakdown | CI | Mergeable | Last Activity |\n");
         md.push_str("|---|-------|-------|-----------|----|-----------|--------------|\n");
         for q in &d.queue {
             md.push_str(&format!(
@@ -773,8 +777,16 @@ fn render_html(d: &ReportData) -> String {
     }
 
     // Separate linked vs standalone
-    let linked_issues: Vec<&TriageRow> = d.triage_results.iter().filter(|t| !t.linked_prs.is_empty()).collect();
-    let standalone_issues: Vec<&TriageRow> = d.triage_results.iter().filter(|t| t.linked_prs.is_empty()).collect();
+    let linked_issues: Vec<&TriageRow> = d
+        .triage_results
+        .iter()
+        .filter(|t| !t.linked_prs.is_empty())
+        .collect();
+    let standalone_issues: Vec<&TriageRow> = d
+        .triage_results
+        .iter()
+        .filter(|t| t.linked_prs.is_empty())
+        .collect();
 
     // Linked Issues & PRs (grouped)
     if !linked_issues.is_empty() {
@@ -805,9 +817,15 @@ fn render_html(d: &ReportData) -> String {
             ));
 
             for pr_num in &t.linked_prs {
-                if let Some(link) = d.pr_issue_links.iter().find(|l| l.pr_number == *pr_num && l.issue_number == t.number) {
+                if let Some(link) = d
+                    .pr_issue_links
+                    .iter()
+                    .find(|l| l.pr_number == *pr_num && l.issue_number == t.number)
+                {
                     let queue_info = d.queue.iter().find(|q| q.number == *pr_num);
-                    let mergeable = queue_info.map(|q| q.mergeable.as_str()).unwrap_or("unknown");
+                    let mergeable = queue_info
+                        .map(|q| q.mergeable.as_str())
+                        .unwrap_or("unknown");
                     let mergeable_class = match mergeable {
                         "yes" => "badge-yes",
                         "conflict" => "badge-conflict",
@@ -862,7 +880,11 @@ fn render_html(d: &ReportData) -> String {
     }
 
     // Standalone PRs (no linked issue)
-    let standalone_prs: Vec<&PrRow> = d.pr_analyses.iter().filter(|p| p.linked_issues.is_empty()).collect();
+    let standalone_prs: Vec<&PrRow> = d
+        .pr_analyses
+        .iter()
+        .filter(|p| p.linked_issues.is_empty())
+        .collect();
     if !standalone_prs.is_empty() {
         h.push_str("<h2>PRs (no linked issue)</h2>\n<table>\n<tr><th>#</th><th>Title</th><th>Type</th><th>Risk</th><th>Activity</th><th>Summary</th></tr>\n");
         for p in &standalone_prs {
@@ -984,12 +1006,7 @@ fn render_html(d: &ReportData) -> String {
 fn convert_to_pdf(html_path: &str, pdf_path: &str) -> Result<()> {
     // Try wkhtmltopdf first
     let result = std::process::Command::new("wkhtmltopdf")
-        .args([
-            "--quiet",
-            "--enable-local-file-access",
-            html_path,
-            pdf_path,
-        ])
+        .args(["--quiet", "--enable-local-file-access", html_path, pdf_path])
         .output();
 
     if let Ok(output) = result {
@@ -1021,10 +1038,7 @@ fn convert_to_pdf(html_path: &str, pdf_path: &str) -> Result<()> {
                 "--headless",
                 "--disable-gpu",
                 &format!("--print-to-pdf={pdf_path}"),
-                &format!(
-                    "file://{}",
-                    Path::new(html_path).canonicalize()?.display()
-                ),
+                &format!("file://{}", Path::new(html_path).canonicalize()?.display()),
             ])
             .output();
 

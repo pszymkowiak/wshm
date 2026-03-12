@@ -142,8 +142,7 @@ pub fn install(args: &crate::cli::DaemonArgs) -> Result<()> {
     );
 
     // Write unit file
-    std::fs::write(UNIT_PATH, &unit)
-        .with_context(|| format!("Failed to write {UNIT_PATH}"))?;
+    std::fs::write(UNIT_PATH, &unit).with_context(|| format!("Failed to write {UNIT_PATH}"))?;
 
     println!("Wrote {UNIT_PATH}");
     println!();
@@ -189,8 +188,7 @@ pub fn uninstall() -> Result<()> {
     println!("Disabled {SERVICE_NAME}.");
 
     // Remove unit file
-    std::fs::remove_file(unit_path)
-        .with_context(|| format!("Failed to remove {UNIT_PATH}"))?;
+    std::fs::remove_file(unit_path).with_context(|| format!("Failed to remove {UNIT_PATH}"))?;
     println!("Removed {UNIT_PATH}.");
 
     // Reload systemd

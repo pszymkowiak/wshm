@@ -61,11 +61,14 @@ pub fn run(db: &Database, args: &HealthArgs, json: bool) -> Result<()> {
 
     if pulls.is_empty() {
         if json {
-            println!("{}", serde_json::to_string_pretty(&HealthReport {
-                duplicates: Vec::new(),
-                stale: Vec::new(),
-                oversized: Vec::new(),
-            })?);
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&HealthReport {
+                    duplicates: Vec::new(),
+                    stale: Vec::new(),
+                    oversized: Vec::new(),
+                })?
+            );
         } else {
             println!("No open PRs.");
         }
@@ -95,11 +98,7 @@ pub fn run(db: &Database, args: &HealthArgs, json: bool) -> Result<()> {
                 group.best
             );
             for m in &group.members {
-                let marker = if m.number == group.best {
-                    "★"
-                } else {
-                    " "
-                };
+                let marker = if m.number == group.best { "★" } else { " " };
                 let mergeable_str = match m.mergeable {
                     Some(true) => "✓",
                     Some(false) => "✗",
@@ -168,10 +167,8 @@ fn detect_duplicates(pulls: &[PullRequest]) -> Vec<DuplicateGroup> {
     }
 
     // Precompute word sets for titles
-    let word_sets: Vec<std::collections::HashSet<String>> = pulls
-        .iter()
-        .map(|pr| tokenize(&pr.title))
-        .collect();
+    let word_sets: Vec<std::collections::HashSet<String>> =
+        pulls.iter().map(|pr| tokenize(&pr.title)).collect();
 
     // Precompute linked issues for each PR
     let linked_issues: Vec<std::collections::HashSet<u64>> = pulls
@@ -251,7 +248,10 @@ fn detect_stale(pulls: &[PullRequest], threshold_days: i64) -> Vec<StalePr> {
     let mut stale: Vec<StalePr> = pulls
         .iter()
         .filter_map(|pr| {
-            let updated = pr.updated_at.parse::<chrono::DateTime<chrono::Utc>>().ok()?;
+            let updated = pr
+                .updated_at
+                .parse::<chrono::DateTime<chrono::Utc>>()
+                .ok()?;
             let days = now.signed_duration_since(updated).num_days();
             if days >= threshold_days {
                 Some(StalePr {

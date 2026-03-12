@@ -199,7 +199,11 @@ pub fn list_models() -> Result<Vec<(String, u64, bool)>> {
     for spec in KNOWN_MODELS {
         let path = dir.join(spec.filename);
         if !path.exists() {
-            models.push((spec.name.to_string(), spec.size_mb as u64 * 1_000_000, false));
+            models.push((
+                spec.name.to_string(),
+                spec.size_mb as u64 * 1_000_000,
+                false,
+            ));
         }
     }
 
@@ -256,11 +260,9 @@ impl LocalClient {
                 .context("Failed to create user message")?,
         ];
 
-        let template = model
-            .chat_template(None)
-            .unwrap_or_else(|_| {
-                LlamaChatTemplate::new("chatml").expect("Failed to create chatml template")
-            });
+        let template = model.chat_template(None).unwrap_or_else(|_| {
+            LlamaChatTemplate::new("chatml").expect("Failed to create chatml template")
+        });
 
         let prompt = model
             .apply_chat_template(&template, &messages, true)
@@ -274,7 +276,11 @@ impl LocalClient {
         // Truncate if prompt exceeds context budget (leave room for 1024 output tokens)
         let max_prompt_tokens = 7000;
         if tokens.len() > max_prompt_tokens {
-            info!("Truncating prompt from {} to {} tokens", tokens.len(), max_prompt_tokens);
+            info!(
+                "Truncating prompt from {} to {} tokens",
+                tokens.len(),
+                max_prompt_tokens
+            );
             tokens.truncate(max_prompt_tokens);
         }
 
@@ -295,10 +301,8 @@ impl LocalClient {
         // Generate
         let mut n_cur = batch.n_tokens();
         let n_max = n_cur + 4096;
-        let mut sampler = LlamaSampler::chain_simple([
-            LlamaSampler::temp(0.1),
-            LlamaSampler::greedy(),
-        ]);
+        let mut sampler =
+            LlamaSampler::chain_simple([LlamaSampler::temp(0.1), LlamaSampler::greedy()]);
         let mut output = String::new();
         let mut decoder = encoding_rs::UTF_8.new_decoder();
 
@@ -311,7 +315,8 @@ impl LocalClient {
                 break;
             }
 
-            let piece = model.token_to_piece(token, &mut decoder, true, None)
+            let piece = model
+                .token_to_piece(token, &mut decoder, true, None)
                 .unwrap_or_default();
             output.push_str(&piece);
 

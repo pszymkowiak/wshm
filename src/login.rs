@@ -52,16 +52,12 @@ extern "C" {
 
 #[cfg(unix)]
 fn disable_echo() {
-    let _ = std::process::Command::new("stty")
-        .arg("-echo")
-        .status();
+    let _ = std::process::Command::new("stty").arg("-echo").status();
 }
 
 #[cfg(unix)]
 fn enable_echo() {
-    let _ = std::process::Command::new("stty")
-        .arg("echo")
-        .status();
+    let _ = std::process::Command::new("stty").arg("echo").status();
 }
 
 #[cfg(not(unix))]
@@ -95,7 +91,8 @@ fn save_credentials(creds: &std::collections::HashMap<String, String>) -> Result
     let path = credentials_path();
     fs::create_dir_all(path.parent().unwrap())?;
 
-    let mut content = String::from("# wshm credentials — DO NOT COMMIT\n# This file is in .gitignore\n\n");
+    let mut content =
+        String::from("# wshm credentials — DO NOT COMMIT\n# This file is in .gitignore\n\n");
     let mut keys: Vec<&String> = creds.keys().collect();
     keys.sort();
     for key in keys {
@@ -235,12 +232,32 @@ fn login_ai() -> Result<()> {
     println!("\n── AI Provider Authentication ──\n");
 
     let providers = [
-        ("anthropic", "ANTHROPIC_API_KEY", "https://console.anthropic.com/settings/keys"),
-        ("openai", "OPENAI_API_KEY", "https://platform.openai.com/api-keys"),
-        ("google", "GOOGLE_API_KEY", "https://aistudio.google.com/apikey"),
-        ("mistral", "MISTRAL_API_KEY", "https://console.mistral.ai/api-keys"),
+        (
+            "anthropic",
+            "ANTHROPIC_API_KEY",
+            "https://console.anthropic.com/settings/keys",
+        ),
+        (
+            "openai",
+            "OPENAI_API_KEY",
+            "https://platform.openai.com/api-keys",
+        ),
+        (
+            "google",
+            "GOOGLE_API_KEY",
+            "https://aistudio.google.com/apikey",
+        ),
+        (
+            "mistral",
+            "MISTRAL_API_KEY",
+            "https://console.mistral.ai/api-keys",
+        ),
         ("groq", "GROQ_API_KEY", "https://console.groq.com/keys"),
-        ("deepseek", "DEEPSEEK_API_KEY", "https://platform.deepseek.com/api_keys"),
+        (
+            "deepseek",
+            "DEEPSEEK_API_KEY",
+            "https://platform.deepseek.com/api_keys",
+        ),
         ("xai", "XAI_API_KEY", "https://console.x.ai"),
         ("ollama", "", ""),
     ];
@@ -434,12 +451,20 @@ fn show_status() -> Result<()> {
 
     // AI API key
     let ai_vars = [
-        "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GOOGLE_API_KEY",
-        "MISTRAL_API_KEY", "GROQ_API_KEY", "DEEPSEEK_API_KEY", "XAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
+        "GOOGLE_API_KEY",
+        "MISTRAL_API_KEY",
+        "GROQ_API_KEY",
+        "DEEPSEEK_API_KEY",
+        "XAI_API_KEY",
     ];
 
     print!("AI key: ");
-    let from_env: Vec<&&str> = ai_vars.iter().filter(|v| std::env::var(v).is_ok()).collect();
+    let from_env: Vec<&&str> = ai_vars
+        .iter()
+        .filter(|v| std::env::var(v).is_ok())
+        .collect();
     let from_creds: Vec<&&str> = ai_vars.iter().filter(|v| creds.contains_key(**v)).collect();
 
     if !from_env.is_empty() {

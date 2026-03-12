@@ -55,30 +55,24 @@ async fn fetch_latest_release(
         .as_str()
         .context("Missing tag_name in release")?
         .to_string();
-    let html_url = json["html_url"]
-        .as_str()
-        .unwrap_or("")
-        .to_string();
+    let html_url = json["html_url"].as_str().unwrap_or("").to_string();
 
     Ok((tag, html_url))
 }
 
 /// Download checksums.txt from a release.
-async fn fetch_checksums(
-    http: &reqwest::Client,
-    tag: &str,
-    token: Option<&str>,
-) -> Result<String> {
-    let url = format!(
-        "https://github.com/{REPO}/releases/download/{tag}/checksums.txt"
-    );
+async fn fetch_checksums(http: &reqwest::Client, tag: &str, token: Option<&str>) -> Result<String> {
+    let url = format!("https://github.com/{REPO}/releases/download/{tag}/checksums.txt");
 
     let mut req = http.get(&url).header("User-Agent", "wshm-updater");
     if let Some(t) = token {
         req = req.header("Authorization", format!("Bearer {t}"));
     }
 
-    let resp = req.send().await.context("Failed to download checksums.txt")?;
+    let resp = req
+        .send()
+        .await
+        .context("Failed to download checksums.txt")?;
     if !resp.status().is_success() {
         anyhow::bail!("Failed to download checksums.txt ({})", resp.status());
     }
@@ -113,9 +107,7 @@ async fn download_binary(
         "tar.gz"
     };
     let asset_name = format!("wshm-{target}.{ext}");
-    let url = format!(
-        "https://github.com/{REPO}/releases/download/{tag}/{asset_name}"
-    );
+    let url = format!("https://github.com/{REPO}/releases/download/{tag}/{asset_name}");
 
     info!("Downloading {asset_name}...");
 
@@ -177,8 +169,11 @@ fn extract_from_zip(archive_data: &[u8]) -> Result<Vec<u8>> {
 
 /// Replace the current binary atomically.
 fn replace_binary(new_binary: &[u8]) -> Result<PathBuf> {
-    let current_exe = std::env::current_exe().context("Cannot determine current executable path")?;
-    let parent = current_exe.parent().context("Cannot determine binary directory")?;
+    let current_exe =
+        std::env::current_exe().context("Cannot determine current executable path")?;
+    let parent = current_exe
+        .parent()
+        .context("Cannot determine binary directory")?;
 
     // Write to temp file first
     let tmp_path = parent.join(".wshm-update.tmp");
@@ -309,7 +304,10 @@ pub async fn check_and_update(apply: bool, json: bool) -> Result<Option<String>>
     let installed_path = replace_binary(&binary)?;
 
     if !json {
-        println!("Updated to v{remote_version} ({})", installed_path.display());
+        println!(
+            "Updated to v{remote_version} ({})",
+            installed_path.display()
+        );
         println!("SHA256: {actual_hash}");
     }
 

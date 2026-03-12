@@ -19,8 +19,8 @@ use tracing::info;
 use crate::cli::{FixArgs, PrArgs, ReviewArgs, TriageArgs};
 use crate::config::Config;
 use crate::db::Database;
-use crate::github::Client as GhClient;
 use crate::github::sync as gh_sync;
+use crate::github::Client as GhClient;
 use crate::pipelines;
 
 /// A parsed slash command from a comment body.
@@ -76,9 +76,7 @@ pub fn parse(comment_body: &str, prefix: &str) -> Option<SlashCommand> {
                         SlashCommand::Unknown("unlabel requires a name".into())
                     }
                 }
-                Some(ref c) if c == "fix" || c == "autofix" || c == "auto-fix" => {
-                    SlashCommand::Fix
-                }
+                Some(ref c) if c == "fix" || c == "autofix" || c == "auto-fix" => SlashCommand::Fix,
                 Some(ref c) if c == "queue" || c == "merge-queue" => SlashCommand::Queue,
                 Some(ref c) if c == "health" || c == "check" => SlashCommand::Health,
                 Some(ref c) if c == "help" => SlashCommand::Help,
@@ -170,9 +168,7 @@ pub async fn execute(
                 }
                 Ok(format!("Added label `{label}` to #{number}."))
             } else {
-                Ok(format!(
-                    "Would add label `{label}` to #{number}. (dry-run)"
-                ))
+                Ok(format!("Would add label `{label}` to #{number}. (dry-run)"))
             }
         }
         SlashCommand::Unlabel(label) => {
@@ -206,7 +202,9 @@ pub async fn execute(
                 apply: true,
             };
             match pipelines::autogen::run(config, db, gh, &fix_args).await {
-                Ok(()) => Ok(format!("Auto-fix attempted for issue #{number}. Check for a new draft PR.")),
+                Ok(()) => Ok(format!(
+                    "Auto-fix attempted for issue #{number}. Check for a new draft PR."
+                )),
                 Err(e) => Ok(format!("Auto-fix failed for issue #{number}: {e:#}")),
             }
         }
@@ -260,10 +258,11 @@ pub async fn execute(
             match pr {
                 Some(pr) => {
                     let age_days = {
-                        let created =
-                            chrono::DateTime::parse_from_rfc3339(&pr.created_at).ok();
+                        let created = chrono::DateTime::parse_from_rfc3339(&pr.created_at).ok();
                         created
-                            .map(|c| (chrono::Utc::now() - c.with_timezone(&chrono::Utc)).num_days())
+                            .map(|c| {
+                                (chrono::Utc::now() - c.with_timezone(&chrono::Utc)).num_days()
+                            })
                             .unwrap_or(0)
                     };
                     let score = pipelines::pr_health::compute_simple_score(pr);
@@ -320,23 +319,47 @@ mod tests {
 
     #[test]
     fn test_slash_prefix() {
-        assert!(matches!(parse("/wshm fix", "/wshm"), Some(SlashCommand::Fix)));
-        assert!(matches!(parse("/wshm autofix", "/wshm"), Some(SlashCommand::Fix)));
-        assert!(matches!(parse("/wshm triage", "/wshm"), Some(SlashCommand::Triage)));
+        assert!(matches!(
+            parse("/wshm fix", "/wshm"),
+            Some(SlashCommand::Fix)
+        ));
+        assert!(matches!(
+            parse("/wshm autofix", "/wshm"),
+            Some(SlashCommand::Fix)
+        ));
+        assert!(matches!(
+            parse("/wshm triage", "/wshm"),
+            Some(SlashCommand::Triage)
+        ));
     }
 
     #[test]
     fn test_at_prefix() {
-        assert!(matches!(parse("@wshm fix", "/wshm"), Some(SlashCommand::Fix)));
-        assert!(matches!(parse("@wshm autofix", "/wshm"), Some(SlashCommand::Fix)));
-        assert!(matches!(parse("@wshm auto-fix", "/wshm"), Some(SlashCommand::Fix)));
-        assert!(matches!(parse("@wshm triage", "/wshm"), Some(SlashCommand::Triage)));
+        assert!(matches!(
+            parse("@wshm fix", "/wshm"),
+            Some(SlashCommand::Fix)
+        ));
+        assert!(matches!(
+            parse("@wshm autofix", "/wshm"),
+            Some(SlashCommand::Fix)
+        ));
+        assert!(matches!(
+            parse("@wshm auto-fix", "/wshm"),
+            Some(SlashCommand::Fix)
+        ));
+        assert!(matches!(
+            parse("@wshm triage", "/wshm"),
+            Some(SlashCommand::Triage)
+        ));
     }
 
     #[test]
     fn test_at_prefix_with_extra_text() {
         // "please" after command is ignored
-        assert!(matches!(parse("@wshm fix please", "/wshm"), Some(SlashCommand::Fix)));
+        assert!(matches!(
+            parse("@wshm fix please", "/wshm"),
+            Some(SlashCommand::Fix)
+        ));
     }
 
     #[test]

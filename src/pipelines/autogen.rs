@@ -26,9 +26,12 @@ use crate::github::Client as GhClient;
 ///   4. Commit changes, push branch
 ///   5. Open PR linking to the issue
 pub async fn run(config: &Config, db: &Database, gh: &GhClient, args: &FixArgs) -> Result<()> {
-    let issue = db
-        .get_issue(args.issue)?
-        .with_context(|| format!("Issue #{} not found in cache. Run `wshm sync` first.", args.issue))?;
+    let issue = db.get_issue(args.issue)?.with_context(|| {
+        format!(
+            "Issue #{} not found in cache. Run `wshm sync` first.",
+            args.issue
+        )
+    })?;
 
     info!("Auto-fixing issue #{}: {}", issue.number, issue.title);
 
@@ -105,7 +108,11 @@ pub async fn run(config: &Config, db: &Database, gh: &GhClient, args: &FixArgs) 
                  The generated fix was rejected by the security scanner:\n\n{}\n\n\
                  A maintainer should review this issue manually.\n\n{}",
                 config.branding.header(),
-                violations.iter().map(|v| format!("- `{v}`")).collect::<Vec<_>>().join("\n"),
+                violations
+                    .iter()
+                    .map(|v| format!("- `{v}`"))
+                    .collect::<Vec<_>>()
+                    .join("\n"),
                 config.branding.footer("Scanned"),
             );
             let _ = gh.comment_issue(issue.number, &warning).await;
@@ -137,12 +144,17 @@ pub async fn run(config: &Config, db: &Database, gh: &GhClient, args: &FixArgs) 
         config.branding.footer("Generated"),
     );
 
-    let pr_title = format!("fix: {} (#{}) [{}]", issue.title, issue.number, config.branding.name);
+    let pr_title = format!(
+        "fix: {} (#{}) [{}]",
+        issue.title, issue.number, config.branding.name
+    );
 
     let create_result = if config.fix.draft_pr {
-        gh.create_draft_pr(&pr_title, &pr_body, &branch, base_branch).await
+        gh.create_draft_pr(&pr_title, &pr_body, &branch, base_branch)
+            .await
     } else {
-        gh.create_pr(&pr_title, &pr_body, &branch, base_branch).await
+        gh.create_pr(&pr_title, &pr_body, &branch, base_branch)
+            .await
     };
 
     match create_result {
@@ -359,7 +371,9 @@ fn resolve_tool(config: &Config, args: &FixArgs) -> AiTool {
 
 async fn run_claude_code(prompt: &str, model: Option<&str>) -> Result<ToolResult> {
     let mut cmd = tokio::process::Command::new("claude");
-    cmd.arg("-p").arg(prompt).arg("--dangerously-skip-permissions");
+    cmd.arg("-p")
+        .arg(prompt)
+        .arg("--dangerously-skip-permissions");
 
     if let Some(model) = model {
         cmd.arg("--model").arg(model);
@@ -437,7 +451,10 @@ async fn run_in_podman(
     // Build the inner command
     match tool {
         AiTool::ClaudeCode { model } => {
-            cmd.arg("claude").arg("-p").arg(prompt).arg("--dangerously-skip-permissions");
+            cmd.arg("claude")
+                .arg("-p")
+                .arg(prompt)
+                .arg("--dangerously-skip-permissions");
             if let Some(model) = model {
                 cmd.arg("--model").arg(model);
             }

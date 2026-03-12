@@ -192,9 +192,21 @@ fn format_analysis_comment(a: &PrAnalysis, config: &Config) -> String {
         a.pr_type,
         a.risk_level,
         a.summary,
-        if a.review_checklist.tests_present { "x" } else { " " },
-        if a.review_checklist.breaking_change { "x" } else { " " },
-        if a.review_checklist.docs_updated { "x" } else { " " },
+        if a.review_checklist.tests_present {
+            "x"
+        } else {
+            " "
+        },
+        if a.review_checklist.breaking_change {
+            "x"
+        } else {
+            " "
+        },
+        if a.review_checklist.docs_updated {
+            "x"
+        } else {
+            " "
+        },
     ));
 
     if !a.linked_issues.is_empty() {

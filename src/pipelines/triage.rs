@@ -78,7 +78,17 @@ pub async fn run(
 
     for issue in &issues {
         info!("Triaging issue #{}: {}", issue.number, issue.title);
-        match triage_issue(config, &backend, db, gh, issue, &existing_issues, args.apply).await {
+        match triage_issue(
+            config,
+            &backend,
+            db,
+            gh,
+            issue,
+            &existing_issues,
+            args.apply,
+        )
+        .await
+        {
             Ok(classification) => {
                 if !json {
                     print_classification(issue, &classification, args.apply);

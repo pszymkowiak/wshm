@@ -2,10 +2,10 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 use tracing::{error, info};
 
+use super::commands;
 use crate::cli::{PrArgs, TriageArgs};
 use crate::github::sync as gh_sync;
 use crate::pipelines;
-use super::commands;
 
 use super::memory;
 use super::DaemonState;
@@ -64,7 +64,10 @@ async fn process_event(state: &DaemonState, event: &WebhookEvent) {
         Err(e) => {
             error!("Event id={} failed: {e}", event.id);
             let err_msg = format!("{e:#}");
-            if let Err(e2) = state.db.update_event_status(event.id, "failed", Some(&err_msg)) {
+            if let Err(e2) = state
+                .db
+                .update_event_status(event.id, "failed", Some(&err_msg))
+            {
                 error!("Failed to update event status to failed: {e2}");
             }
         }

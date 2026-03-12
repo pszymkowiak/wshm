@@ -55,11 +55,7 @@ async fn poll_events(
         state.config.repo_owner, state.config.repo_name
     );
 
-    let response = state
-        .gh
-        .octocrab
-        ._get(&url)
-        .await?;
+    let response = state.gh.octocrab._get(&url).await?;
 
     let body = state.gh.octocrab.body_to_string(response).await?;
     let events: Vec<serde_json::Value> = serde_json::from_str(&body)?;
@@ -71,10 +67,7 @@ async fn poll_events(
     // Find new events (everything after last_event_id)
     let mut new_events = Vec::new();
     for event in &events {
-        let id = event
-            .get("id")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let id = event.get("id").and_then(|v| v.as_str()).unwrap_or("");
 
         if let Some(ref last_id) = last_event_id {
             if id == last_id {
@@ -97,10 +90,7 @@ async fn poll_events(
 
     let mut dispatched = 0;
     for event in &new_events {
-        let event_type = event
-            .get("type")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let event_type = event.get("type").and_then(|v| v.as_str()).unwrap_or("");
 
         let payload = event.get("payload").cloned().unwrap_or_default();
         let action = payload
@@ -112,15 +102,24 @@ async fn poll_events(
         // Map GitHub event types to webhook event types
         let (mapped_type, number) = match event_type {
             "IssuesEvent" if action == "opened" => {
-                let n = payload.get("issue").and_then(|i| i.get("number")).and_then(|n| n.as_u64());
+                let n = payload
+                    .get("issue")
+                    .and_then(|i| i.get("number"))
+                    .and_then(|n| n.as_u64());
                 ("issues", n)
             }
             "PullRequestEvent" if action == "opened" || action == "synchronize" => {
-                let n = payload.get("pull_request").and_then(|p| p.get("number")).and_then(|n| n.as_u64());
+                let n = payload
+                    .get("pull_request")
+                    .and_then(|p| p.get("number"))
+                    .and_then(|n| n.as_u64());
                 ("pull_request", n)
             }
             "IssueCommentEvent" if action == "created" => {
-                let n = payload.get("issue").and_then(|i| i.get("number")).and_then(|n| n.as_u64());
+                let n = payload
+                    .get("issue")
+                    .and_then(|i| i.get("number"))
+                    .and_then(|n| n.as_u64());
                 // Only dispatch if it contains a slash command
                 let body = payload
                     .get("comment")
@@ -137,18 +136,17 @@ async fn poll_events(
 
         // Store in DB
         let payload_str = serde_json::to_string(&payload).unwrap_or_default();
-        let event_id = match state.db.insert_webhook_event(
-            mapped_type,
-            &action,
-            number,
-            &payload_str,
-        ) {
-            Ok(id) => id,
-            Err(e) => {
-                error!("Failed to store polled event: {e}");
-                continue;
-            }
-        };
+        let event_id =
+            match state
+                .db
+                .insert_webhook_event(mapped_type, &action, number, &payload_str)
+            {
+                Ok(id) => id,
+                Err(e) => {
+                    error!("Failed to store polled event: {e}");
+                    continue;
+                }
+            };
 
         let webhook_event = WebhookEvent {
             id: event_id,
