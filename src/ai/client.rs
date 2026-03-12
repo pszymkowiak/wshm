@@ -230,10 +230,11 @@ impl AiClient {
     }
 
     pub async fn complete<T: DeserializeOwned>(&self, system: &str, user: &str) -> Result<T> {
-        let raw = match self.provider.kind {
-            ProviderKind::Anthropic => self.call_anthropic(system, user).await?,
-            ProviderKind::OpenAiCompat => self.call_openai_compat(system, user).await?,
-            ProviderKind::Google => self.call_google(system, user).await?,
+        let raw = match (&self.provider.kind, self.provider.is_oauth) {
+            (ProviderKind::Anthropic, true) => self.call_claude_cli(system, user).await?,
+            (ProviderKind::Anthropic, false) => self.call_anthropic(system, user).await?,
+            (ProviderKind::OpenAiCompat, _) => self.call_openai_compat(system, user).await?,
+            (ProviderKind::Google, _) => self.call_google(system, user).await?,
         };
 
         debug!("AI response: {raw}");
@@ -243,6 +244,34 @@ impl AiClient {
             .with_context(|| format!("Failed to parse AI response as JSON:\n{raw}"))
     }
 
+    /// Call Claude via the `claude` CLI (`claude -p`).
+    /// Used for Max/Pro/Team subscriptions (OAuth) — no API key needed.
+    async fn call_claude_cli(&self, system: &str, user: &str) -> Result<String> {
+        debug!("Calling claude CLI (OAuth/Max/Pro mode)");
+
+        let prompt = format!("{system}\n\n{user}");
+
+        let output = tokio::process::Command::new("claude")
+            .args(["-p", &prompt, "--output-format", "text"])
+            .env("CLAUDE_MODEL", &self.provider.model)
+            .output()
+            .await
+            .context("Failed to run `claude -p`. Is claude CLI installed? (npm install -g @anthropic-ai/claude-code)")?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            anyhow::bail!("claude CLI error: {stderr}");
+        }
+
+        let text = String::from_utf8_lossy(&output.stdout).to_string();
+        if text.trim().is_empty() {
+            anyhow::bail!("claude CLI returned empty response");
+        }
+
+        Ok(text)
+    }
+
+    /// Call Anthropic API directly with an API key.
     async fn call_anthropic(&self, system: &str, user: &str) -> Result<String> {
         let body = serde_json::json!({
             "model": self.provider.model,
@@ -253,17 +282,12 @@ impl AiClient {
             ]
         });
 
-        let mut req = self
+        let req = self
             .http
             .post(&self.provider.api_url)
             .header("anthropic-version", "2023-06-01")
-            .header("content-type", "application/json");
-
-        if self.provider.is_oauth {
-            req = req.header("Authorization", format!("Bearer {}", self.provider.api_key));
-        } else {
-            req = req.header("x-api-key", &self.provider.api_key);
-        }
+            .header("content-type", "application/json")
+            .header("x-api-key", &self.provider.api_key);
 
         let response = req
             .json(&body)
