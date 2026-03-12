@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use crate::db::pulls::PullRequest;
-use crate::github::Client;
 use crate::github::issues::WSHM_COMMENT_MARKER;
+use crate::github::Client;
 
 /// A merged pull request with its merge date
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -141,10 +141,7 @@ impl Client {
                     })
                     .unwrap_or_default();
 
-                let state = pr
-                    .get("state")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("open");
+                let state = pr.get("state").and_then(|v| v.as_str()).unwrap_or("open");
 
                 let mergeable = pr.get("mergeable").and_then(|v| v.as_bool());
 
@@ -320,13 +317,7 @@ impl Client {
     }
 
     /// Create a new pull request, returns the PR number
-    pub async fn create_pr(
-        &self,
-        title: &str,
-        body: &str,
-        head: &str,
-        base: &str,
-    ) -> Result<u64> {
+    pub async fn create_pr(&self, title: &str, body: &str, head: &str, base: &str) -> Result<u64> {
         let pr_body = serde_json::json!({
             "title": title,
             "body": body,

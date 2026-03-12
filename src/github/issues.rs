@@ -16,7 +16,11 @@ impl Client {
         self.fetch_issues_with_state("all", since).await
     }
 
-    async fn fetch_issues_with_state(&self, state: &str, since: Option<&str>) -> Result<Vec<Issue>> {
+    async fn fetch_issues_with_state(
+        &self,
+        state: &str,
+        since: Option<&str>,
+    ) -> Result<Vec<Issue>> {
         let mut all_issues = Vec::new();
         let mut page = 1u32;
 
@@ -66,10 +70,7 @@ impl Client {
                     .and_then(|v| v.as_u64())
                     .unwrap_or(0) as u32;
 
-                let state = item
-                    .get("state")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("open");
+                let state = item.get("state").and_then(|v| v.as_str()).unwrap_or("open");
 
                 let labels: Vec<String> = item
                     .get("labels")
@@ -167,10 +168,7 @@ impl Client {
             }
 
             for comment in &comments {
-                let comment_body = comment
-                    .get("body")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
+                let comment_body = comment.get("body").and_then(|v| v.as_str()).unwrap_or("");
 
                 if comment_body.contains(WSHM_COMMENT_MARKER) {
                     if let Some(id) = comment.get("id").and_then(|v| v.as_u64()) {

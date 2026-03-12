@@ -47,9 +47,7 @@ pub async fn run(
     Ok(())
 }
 
-async fn handle_health(
-    State(state): State<Arc<ServerState>>,
-) -> impl IntoResponse {
+async fn handle_health(State(state): State<Arc<ServerState>>) -> impl IntoResponse {
     let pending = state.daemon.db.pending_event_count().unwrap_or(0);
     Json(json!({
         "status": "ok",
@@ -73,7 +71,11 @@ async fn handle_webhook(
 
         if !verify_signature(secret, &body, sig_header) {
             warn!("Invalid webhook signature");
-            return (StatusCode::UNAUTHORIZED, Json(json!({"error": "invalid signature"}))).into_response();
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({"error": "invalid signature"})),
+            )
+                .into_response();
         }
     }
 
@@ -81,7 +83,11 @@ async fn handle_webhook(
     let event_type = match headers.get("x-github-event").and_then(|v| v.to_str().ok()) {
         Some(e) => e.to_string(),
         None => {
-            return (StatusCode::BAD_REQUEST, Json(json!({"error": "missing x-github-event header"}))).into_response();
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({"error": "missing x-github-event header"})),
+            )
+                .into_response();
         }
     };
 
@@ -90,7 +96,11 @@ async fn handle_webhook(
         Ok(v) => v,
         Err(e) => {
             warn!("Failed to parse webhook payload: {e}");
-            return (StatusCode::BAD_REQUEST, Json(json!({"error": "invalid JSON"}))).into_response();
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({"error": "invalid JSON"})),
+            )
+                .into_response();
         }
     };
 
@@ -110,31 +120,48 @@ async fn handle_webhook(
 
     if !should_process {
         info!("Ignoring event: {event_type}.{action}");
-        return (StatusCode::OK, Json(json!({"status": "ignored", "event": event_type, "action": action}))).into_response();
+        return (
+            StatusCode::OK,
+            Json(json!({"status": "ignored", "event": event_type, "action": action})),
+        )
+            .into_response();
     }
 
     // Extract number
     let number = match event_type.as_str() {
-        "issues" => payload.get("issue").and_then(|i| i.get("number")).and_then(|n| n.as_u64()),
-        "pull_request" => payload.get("pull_request").and_then(|p| p.get("number")).and_then(|n| n.as_u64()),
-        "issue_comment" => payload.get("issue").and_then(|i| i.get("number")).and_then(|n| n.as_u64()),
+        "issues" => payload
+            .get("issue")
+            .and_then(|i| i.get("number"))
+            .and_then(|n| n.as_u64()),
+        "pull_request" => payload
+            .get("pull_request")
+            .and_then(|p| p.get("number"))
+            .and_then(|n| n.as_u64()),
+        "issue_comment" => payload
+            .get("issue")
+            .and_then(|i| i.get("number"))
+            .and_then(|n| n.as_u64()),
         _ => None,
     };
 
     // Store in DB
     let payload_str = serde_json::to_string(&payload).unwrap_or_default();
-    let event_id = match state.daemon.db.insert_webhook_event(
-        &event_type,
-        &action,
-        number,
-        &payload_str,
-    ) {
-        Ok(id) => id,
-        Err(e) => {
-            tracing::error!("Failed to store webhook event: {e}");
-            return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": "failed to store event"}))).into_response();
-        }
-    };
+    let event_id =
+        match state
+            .daemon
+            .db
+            .insert_webhook_event(&event_type, &action, number, &payload_str)
+        {
+            Ok(id) => id,
+            Err(e) => {
+                tracing::error!("Failed to store webhook event: {e}");
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({"error": "failed to store event"})),
+                )
+                    .into_response();
+            }
+        };
 
     info!("Received webhook: {event_type}.{action} number={number:?} id={event_id}");
 
@@ -149,10 +176,18 @@ async fn handle_webhook(
 
     if let Err(e) = state.tx.send(event).await {
         tracing::error!("Failed to enqueue event: {e}");
-        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": "queue full"}))).into_response();
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": "queue full"})),
+        )
+            .into_response();
     }
 
-    (StatusCode::OK, Json(json!({"status": "accepted", "event": event_type, "action": action, "id": event_id}))).into_response()
+    (
+        StatusCode::OK,
+        Json(json!({"status": "accepted", "event": event_type, "action": action, "id": event_id})),
+    )
+        .into_response()
 }
 
 fn verify_signature(secret: &str, body: &[u8], sig_header: &str) -> bool {

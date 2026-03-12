@@ -33,7 +33,5 @@ pub fn build_user_prompt(pr_title: &str, pr_body: &str, diff: &str) -> String {
         diff.to_string()
     };
 
-    format!(
-        "## PR: {pr_title}\n\n{pr_body}\n\n## Diff:\n```diff\n{truncated}\n```"
-    )
+    format!("## PR: {pr_title}\n\n{pr_body}\n\n## Diff:\n```diff\n{truncated}\n```")
 }

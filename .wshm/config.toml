@@ -1,0 +1,36 @@
+[github]
+# Token from env var GITHUB_TOKEN or WSHM_TOKEN (never stored in config)
+
+[ai]
+provider = "google"
+model = "gemini-2.5-flash"
+# base_url = "http://maria.home.lan:11434/v1/chat/completions"
+
+[triage]
+enabled = true
+auto_fix = false
+auto_fix_confidence = 0.85
+labels_bug = "bug"
+labels_feature = "feature"
+labels_duplicate = "duplicate"
+labels_wontfix = "wontfix"
+labels_needs_info = "needs-info"
+
+[pr]
+enabled = true
+auto_label = true
+risk_labels = true
+
+[queue]
+enabled = true
+merge_threshold = 15
+strategy = "rebase"
+
+[conflicts]
+enabled = true
+auto_resolve = false
+auto_resolve_confidence = 0.85
+
+[sync]
+interval_minutes = 5
+full_sync_interval_hours = 24

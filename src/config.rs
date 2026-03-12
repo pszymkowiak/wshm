@@ -403,13 +403,9 @@ impl BrandingConfig {
             "🧞".to_string()
         };
 
-        let tagline = self.tagline.as_deref()
-            .unwrap_or("Automated triage by AI");
+        let tagline = self.tagline.as_deref().unwrap_or("Automated triage by AI");
 
-        format!(
-            "> {icon} **{name}** · {tagline}\n\n",
-            name = self.name,
-        )
+        format!("> {icon} **{name}** · {tagline}\n\n", name = self.name,)
     }
 }
 

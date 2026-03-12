@@ -11,8 +11,7 @@ use super::DaemonState;
 
 pub async fn run(state: Arc<DaemonState>) {
     let interval = Duration::from_secs(state.config.sync.interval_minutes as u64 * 60);
-    let update_interval =
-        Duration::from_secs(state.config.update.interval_hours as u64 * 3600);
+    let update_interval = Duration::from_secs(state.config.update.interval_hours as u64 * 3600);
     let mut last_update_check = Instant::now();
 
     info!(

@@ -172,7 +172,11 @@ async fn main() -> Result<()> {
                     println!("{}", "-".repeat(45));
                     for (name, size, downloaded) in &models {
                         let size_str = format!("{:.0} MB", *size as f64 / 1_000_000.0);
-                        let status = if *downloaded { "downloaded" } else { "available" };
+                        let status = if *downloaded {
+                            "downloaded"
+                        } else {
+                            "available"
+                        };
                         println!("{:<20} {:<10} {}", name, size_str, status);
                     }
                 }

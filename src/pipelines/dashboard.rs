@@ -39,10 +39,12 @@ pub fn run(db: &Database, args: &DashboardArgs) -> Result<()> {
         .clone()
         .unwrap_or_else(|| "wshm-dashboard.html".to_string());
 
-    std::fs::write(&output, &html)
-        .with_context(|| format!("Failed to write {output}"))?;
+    std::fs::write(&output, &html).with_context(|| format!("Failed to write {output}"))?;
 
-    println!("Dashboard written to {output} ({} snapshots)", history.len());
+    println!(
+        "Dashboard written to {output} ({} snapshots)",
+        history.len()
+    );
     Ok(())
 }
 
@@ -135,9 +137,7 @@ fn load_history(db: &Database) -> Result<Vec<MetricSnapshot>> {
             return Ok(Vec::new());
         }
 
-        let mut stmt = conn.prepare(
-            "SELECT data FROM metric_snapshots ORDER BY timestamp ASC",
-        )?;
+        let mut stmt = conn.prepare("SELECT data FROM metric_snapshots ORDER BY timestamp ASC")?;
         let snapshots = stmt
             .query_map([], |row| {
                 let data: String = row.get(0)?;

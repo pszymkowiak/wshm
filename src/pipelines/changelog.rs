@@ -51,7 +51,10 @@ pub async fn run(gh: &Client, args: &ChangelogArgs) -> Result<()> {
         if args.format == "json" {
             println!("{{\"sections\":[]}}");
         } else {
-            println!("# Changelog\n\nNo merged PRs in the last {} days.", args.days);
+            println!(
+                "# Changelog\n\nNo merged PRs in the last {} days.",
+                args.days
+            );
         }
         return Ok(());
     }
@@ -94,7 +97,10 @@ fn print_markdown(prs: &[MergedPullRequest], days: u64) {
             let author = pr.author.as_deref().unwrap_or("unknown");
             // Extract just the date part from merged_at
             let date = pr.merged_at.split('T').next().unwrap_or(&pr.merged_at);
-            println!("- **PR #{number}** — {display_title} (@{author}) — {date}", number = pr.number);
+            println!(
+                "- **PR #{number}** — {display_title} (@{author}) — {date}",
+                number = pr.number
+            );
         }
         println!();
     }

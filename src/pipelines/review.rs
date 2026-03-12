@@ -101,11 +101,8 @@ pub async fn run(
         }
 
         // AI inline review
-        let user_prompt = inline_review::build_user_prompt(
-            &pr.title,
-            pr.body.as_deref().unwrap_or(""),
-            &diff,
-        );
+        let user_prompt =
+            inline_review::build_user_prompt(&pr.title, pr.body.as_deref().unwrap_or(""), &diff);
 
         let result: InlineReviewResult = match ai.review(inline_review::SYSTEM, &user_prompt).await
         {
@@ -141,7 +138,11 @@ pub async fn run(
             );
 
             match gh.submit_review(pr.number, &review_body, &comments).await {
-                Ok(()) => info!("Posted review on PR #{} ({} comments)", pr.number, comments.len()),
+                Ok(()) => info!(
+                    "Posted review on PR #{} ({} comments)",
+                    pr.number,
+                    comments.len()
+                ),
                 Err(e) => tracing::error!("Failed to post review on PR #{}: {e:#}", pr.number),
             }
         }
@@ -217,10 +218,7 @@ pub fn compute_diff_size(diff: &str) -> DiffSize {
     DiffSize {
         additions,
         deletions,
-        files_changed: diff
-            .lines()
-            .filter(|l| l.starts_with("diff --git"))
-            .count(),
+        files_changed: diff.lines().filter(|l| l.starts_with("diff --git")).count(),
         large_files,
     }
 }
@@ -259,7 +257,13 @@ fn format_size_summary(size: &DiffSize) -> String {
     )
 }
 
-fn print_review(number: u64, title: &str, result: &InlineReviewResult, size: &DiffSize, applied: bool) {
+fn print_review(
+    number: u64,
+    title: &str,
+    result: &InlineReviewResult,
+    size: &DiffSize,
+    applied: bool,
+) {
     let status = if applied { "APPLIED" } else { "DRY-RUN" };
     let truncated_title = if title.len() > 50 {
         format!("{}…", &title[..49])

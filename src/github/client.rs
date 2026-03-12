@@ -32,10 +32,7 @@ impl Client {
             self.owner, self.repo, username
         );
 
-        let response = self
-            .octocrab
-            ._get(&url)
-            .await;
+        let response = self.octocrab._get(&url).await;
 
         match response {
             Ok(resp) => {
