@@ -192,6 +192,14 @@ async fn main() -> Result<()> {
             login::run(args)?;
         }
         Some(Command::Daemon(args)) => {
+            if args.install {
+                daemon::systemd::install(args)?;
+                return Ok(());
+            }
+            if args.uninstall {
+                daemon::systemd::uninstall()?;
+                return Ok(());
+            }
             let config = config::Config::load(&cli)?;
             daemon::run(config, args.clone()).await?;
         }
