@@ -8,6 +8,7 @@ mod config;
 mod daemon;
 mod db;
 mod github;
+mod icm;
 mod login;
 mod pipelines;
 mod update;
