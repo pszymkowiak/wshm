@@ -35,7 +35,7 @@ pub async fn run(
         if json {
             println!("[]");
         } else {
-            println!("No open PRs in queu.");
+            println!("No open PRs in queue.");
         }
         return Ok(());
     }
