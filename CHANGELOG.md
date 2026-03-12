@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/pszymkowiak/wshm/compare/v0.3.0...v0.3.1) (2026-03-12)
+
+
+### Bug Fixes
+
+* don't skip release upload when some build targets fail ([5332dd1](https://github.com/pszymkowiak/wshm/commit/5332dd1d1f6fc4f4604731476a4a2e0a9e887681))
+
 ## [0.3.0](https://github.com/pszymkowiak/wshm/compare/v0.2.0...v0.3.0) (2026-03-12)
 
 
