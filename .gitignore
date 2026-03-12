@@ -1,3 +1,7 @@
 /target
 .wshm/logs/
+.wshm/credentials
+.wshm/state.db
+.wshm/state.db-wal
+.wshm/state.db-shm
 .env
