@@ -1,6 +1,8 @@
 use anyhow::Result;
+use serde::Serialize;
 use tracing::info;
 
+use crate::ai::local::LocalClient;
 use crate::ai::prompts::pr_analyze;
 use crate::ai::schemas::PrAnalysis;
 use crate::ai::AiClient;
@@ -10,14 +12,50 @@ use crate::db::pulls::PullRequest;
 use crate::db::Database;
 use crate::github::Client as GhClient;
 
-pub async fn run(config: &Config, db: &Database, gh: &GhClient, args: &PrArgs) -> Result<()> {
-    let ai = AiClient::new(config)?;
+#[derive(Serialize)]
+struct PrAnalysisOutput {
+    pr_number: u64,
+    title: String,
+    applied: bool,
+    analysis: PrAnalysis,
+}
+
+enum AiBackend {
+    Remote(AiClient),
+    Local(LocalClient),
+}
+
+impl AiBackend {
+    async fn analyze(&self, system: &str, user: &str) -> Result<PrAnalysis> {
+        match self {
+            AiBackend::Remote(ai) => ai.complete(system, user).await,
+            AiBackend::Local(local) => local.complete(system, user),
+        }
+    }
+}
+
+pub async fn run(
+    config: &Config,
+    db: &Database,
+    gh: &GhClient,
+    args: &PrArgs,
+    json: bool,
+) -> Result<()> {
+    let ai = if config.ai.provider == "local" {
+        AiBackend::Local(LocalClient::new(&config.ai.model)?)
+    } else {
+        AiBackend::Remote(AiClient::new(config)?)
+    };
 
     let pulls = if let Some(number) = args.pr {
         match db.get_pull(number)? {
             Some(pr) => vec![pr],
             None => {
-                println!("PR #{number} not found in cache. Run `wshm sync` first.");
+                if json {
+                    println!("[]");
+                } else {
+                    println!("PR #{number} not found in cache. Run `wshm sync` first.");
+                }
                 return Ok(());
             }
         }
@@ -26,15 +64,29 @@ pub async fn run(config: &Config, db: &Database, gh: &GhClient, args: &PrArgs) -
     };
 
     if pulls.is_empty() {
-        println!("No PRs to analyze.");
+        if json {
+            println!("[]");
+        } else {
+            println!("No PRs to analyze.");
+        }
         return Ok(());
     }
+
+    let mut results: Vec<PrAnalysisOutput> = Vec::new();
 
     for pr in &pulls {
         info!("Analyzing PR #{}: {}", pr.number, pr.title);
         match analyze_pr(config, &ai, db, gh, pr, args.apply).await {
             Ok(analysis) => {
-                print_analysis(pr, &analysis, args.apply);
+                if !json {
+                    print_analysis(pr, &analysis, args.apply);
+                }
+                results.push(PrAnalysisOutput {
+                    pr_number: pr.number,
+                    title: pr.title.clone(),
+                    applied: args.apply,
+                    analysis,
+                });
             }
             Err(e) => {
                 tracing::error!("Failed to analyze PR #{}: {e:#}", pr.number);
@@ -42,12 +94,16 @@ pub async fn run(config: &Config, db: &Database, gh: &GhClient, args: &PrArgs) -
         }
     }
 
+    if json {
+        println!("{}", serde_json::to_string_pretty(&results)?);
+    }
+
     Ok(())
 }
 
 async fn analyze_pr(
-    _config: &Config,
-    ai: &AiClient,
+    config: &Config,
+    ai: &AiBackend,
     db: &Database,
     gh: &GhClient,
     pr: &PullRequest,
@@ -63,7 +119,7 @@ async fn analyze_pr(
     };
 
     let user_prompt = pr_analyze::build_user_prompt(pr, diff.as_deref());
-    let analysis: PrAnalysis = ai.complete(pr_analyze::SYSTEM, &user_prompt).await?;
+    let analysis: PrAnalysis = ai.analyze(pr_analyze::SYSTEM, &user_prompt).await?;
 
     // Store in DB
     let now = chrono::Utc::now().to_rfc3339();
@@ -94,7 +150,7 @@ async fn analyze_pr(
             gh.label_pr(pr.number, &analysis.suggested_labels).await?;
         }
 
-        let comment = format_analysis_comment(&analysis);
+        let comment = format_analysis_comment(&analysis, config);
         gh.comment_pr(pr.number, &comment).await?;
 
         info!("Applied analysis to PR #{}", pr.number);
@@ -103,8 +159,9 @@ async fn analyze_pr(
     Ok(analysis)
 }
 
-fn format_analysis_comment(a: &PrAnalysis) -> String {
-    let mut comment = format!(
+fn format_analysis_comment(a: &PrAnalysis, config: &Config) -> String {
+    let mut comment = config.branding.header();
+    comment.push_str(&format!(
         "## 📊 PR Analysis\n\n\
          **Type:** {}\n\
          **Risk:** {}\n\n\
@@ -131,7 +188,7 @@ fn format_analysis_comment(a: &PrAnalysis) -> String {
         } else {
             " "
         },
-    );
+    ));
 
     if !a.linked_issues.is_empty() {
         comment.push_str("\n**Linked issues:** ");
@@ -140,7 +197,7 @@ fn format_analysis_comment(a: &PrAnalysis) -> String {
         comment.push('\n');
     }
 
-    comment.push_str("\n---\n*Analyzed by [wshm](https://github.com/pszymkowiak/wshm)*");
+    comment.push_str(&format!("\n{}", config.branding.footer("Analyzed")));
     comment
 }
 

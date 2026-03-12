@@ -73,8 +73,33 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
             last_synced_at TEXT NOT NULL,
             etag           TEXT
         );
+
+        CREATE TABLE IF NOT EXISTS webhook_events (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_type   TEXT NOT NULL,
+            action       TEXT NOT NULL,
+            number       INTEGER,
+            payload      TEXT NOT NULL,
+            status       TEXT NOT NULL DEFAULT 'pending',
+            error        TEXT,
+            received_at  TEXT NOT NULL,
+            processed_at TEXT
+        );
         ",
     )?;
+
+    // Migration: add reactions columns to issues
+    let has_reactions: bool = conn
+        .prepare("SELECT reactions_plus1 FROM issues LIMIT 0")
+        .is_ok();
+    if !has_reactions {
+        conn.execute_batch(
+            "
+            ALTER TABLE issues ADD COLUMN reactions_plus1 INTEGER NOT NULL DEFAULT 0;
+            ALTER TABLE issues ADD COLUMN reactions_total INTEGER NOT NULL DEFAULT 0;
+            ",
+        )?;
+    }
 
     Ok(())
 }

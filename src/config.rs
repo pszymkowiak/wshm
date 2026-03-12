@@ -28,6 +28,15 @@ pub struct Config {
     #[serde(default)]
     pub sync: SyncConfig,
 
+    #[serde(default)]
+    pub fix: FixConfig,
+
+    #[serde(default)]
+    pub daemon: DaemonConfig,
+
+    #[serde(default)]
+    pub branding: BrandingConfig,
+
     /// Resolved at runtime, not from config file
     #[serde(skip)]
     pub repo_owner: String,
@@ -237,7 +246,168 @@ fn default_full_sync_interval() -> u32 {
     24
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct FixConfig {
+    /// AI tool to use: claude-code, codex (default: claude-code)
+    #[serde(default = "default_fix_tool")]
+    pub tool: String,
+
+    /// Docker image for sandboxed execution
+    #[serde(default = "default_fix_image")]
+    pub docker_image: String,
+
+    /// Extra env var names to forward into Docker containers
+    #[serde(default)]
+    pub secret_env: Vec<String>,
+}
+
+impl Default for FixConfig {
+    fn default() -> Self {
+        Self {
+            tool: default_fix_tool(),
+            docker_image: default_fix_image(),
+            secret_env: Vec::new(),
+        }
+    }
+}
+
+fn default_fix_tool() -> String {
+    "claude-code".to_string()
+}
+fn default_fix_image() -> String {
+    "wshm-sandbox:latest".to_string()
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct DaemonConfig {
+    #[serde(default = "default_daemon_bind")]
+    pub bind: String,
+
+    #[serde(default)]
+    pub webhook_secret: Option<String>,
+
+    #[serde(default)]
+    pub apply: bool,
+
+    #[serde(default)]
+    pub icm_enabled: bool,
+
+    #[serde(default = "default_icm_prefix")]
+    pub icm_topic_prefix: String,
+}
+
+impl Default for DaemonConfig {
+    fn default() -> Self {
+        Self {
+            bind: default_daemon_bind(),
+            webhook_secret: None,
+            apply: false,
+            icm_enabled: false,
+            icm_topic_prefix: default_icm_prefix(),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct BrandingConfig {
+    /// Bot display name in comments (default: "wshm")
+    #[serde(default = "default_bot_name")]
+    pub name: String,
+
+    /// Bot URL linked in footers (default: "https://github.com/pszymkowiak/wshm")
+    #[serde(default = "default_bot_url")]
+    pub url: String,
+
+    /// Avatar/logo URL shown in comment headers (optional, Markdown image)
+    #[serde(default)]
+    pub avatar_url: Option<String>,
+
+    /// Tagline shown in comment headers (optional)
+    #[serde(default)]
+    pub tagline: Option<String>,
+
+    /// Slash command prefix in issue comments (default: "/wshm")
+    #[serde(default = "default_command_prefix")]
+    pub command_prefix: String,
+
+    /// Footer template. Placeholders: {name}, {url}
+    /// Default: "*{action} by [{name}]({url})*"
+    #[serde(default)]
+    pub footer_template: Option<String>,
+}
+
+impl Default for BrandingConfig {
+    fn default() -> Self {
+        Self {
+            name: default_bot_name(),
+            url: default_bot_url(),
+            avatar_url: None,
+            tagline: None,
+            command_prefix: default_command_prefix(),
+            footer_template: None,
+        }
+    }
+}
+
+impl BrandingConfig {
+    /// Hidden HTML marker for idempotent comment updates.
+    pub fn comment_marker(&self) -> String {
+        format!("<!-- {} -->", self.name)
+    }
+
+    /// Build the footer line for a comment. `action` is e.g. "Triaged", "Analyzed", "Reviewed".
+    pub fn footer(&self, action: &str) -> String {
+        let tmpl = self.footer_template.as_deref()
+            .unwrap_or("*{action} by [{name}]({url})*");
+
+        let result = tmpl
+            .replace("{action}", action)
+            .replace("{name}", &self.name)
+            .replace("{url}", &self.url);
+
+        format!("---\n{}\n{}", result, self.comment_marker())
+    }
+
+    /// Build a comment header with optional avatar and tagline.
+    pub fn header(&self) -> String {
+        let mut parts = Vec::new();
+        if let Some(ref avatar) = self.avatar_url {
+            parts.push(format!("<img src=\"{avatar}\" width=\"20\" height=\"20\" align=\"absmiddle\"> "));
+        }
+        if let Some(ref tagline) = self.tagline {
+            if !parts.is_empty() || self.avatar_url.is_some() {
+                parts.push(format!("**{}** — {tagline}\n\n", self.name));
+            } else {
+                parts.push(format!("**{}** — {tagline}\n\n", self.name));
+            }
+        }
+        parts.join("")
+    }
+}
+
+fn default_bot_name() -> String {
+    "wshm".to_string()
+}
+fn default_bot_url() -> String {
+    "https://github.com/pszymkowiak/wshm".to_string()
+}
+fn default_command_prefix() -> String {
+    "/wshm".to_string()
+}
+
+fn default_daemon_bind() -> String {
+    "0.0.0.0:3000".to_string()
+}
+
+fn default_icm_prefix() -> String {
+    "wshm".to_string()
+}
+
 impl Config {
+    pub fn fix_secret_env_vars(&self) -> Vec<String> {
+        self.fix.secret_env.clone()
+    }
+
     pub fn load(cli: &Cli) -> Result<Self> {
         let wshm_dir = PathBuf::from(".wshm");
         let config_path = wshm_dir.join("config.toml");
@@ -331,10 +501,22 @@ auto_resolve_confidence = 0.85
 [sync]
 interval_minutes = 5
 full_sync_interval_hours = 24
+
+# [branding]
+# name = "wshm"                       # Bot display name in comments
+# url = "https://github.com/pszymkowiak/wshm"  # Link in comment footers
+# avatar_url = "https://example.com/logo.png"   # Optional avatar in headers
+# tagline = "AI-powered repo assistant"          # Optional tagline
+# command_prefix = "/wshm"             # Slash command prefix
+# footer_template = "*{action} by [{name}]({url})*"  # Custom footer
 "#;
 
         fs::write(&config_path, template)?;
         Ok(())
+    }
+
+    pub fn repo_slug(&self) -> String {
+        format!("{}/{}", self.repo_owner, self.repo_name)
     }
 
     pub fn github_token(&self) -> Result<String> {
@@ -355,6 +537,9 @@ impl Default for Config {
             queue: QueueConfig::default(),
             conflicts: ConflictConfig::default(),
             sync: SyncConfig::default(),
+            fix: FixConfig::default(),
+            daemon: DaemonConfig::default(),
+            branding: BrandingConfig::default(),
             repo_owner: String::new(),
             repo_name: String::new(),
             wshm_dir: PathBuf::from(".wshm"),

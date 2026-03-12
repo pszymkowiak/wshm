@@ -20,9 +20,45 @@ pub struct PullRequest {
     pub updated_at: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PrAnalysisRow {
+    pub pr_number: u64,
+    pub summary: String,
+    pub risk_level: String,
+    pub pr_type: String,
+    pub review_notes: Option<String>,
+    pub analyzed_at: String,
+}
+
 use crate::db::Database;
 
 impl Database {
+    pub fn get_pr_analysis(&self, pr_number: u64) -> Result<Option<PrAnalysisRow>> {
+        self.with_conn(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT pr_number, summary, risk_level, pr_type, review_notes, analyzed_at
+                 FROM pr_analyses WHERE pr_number = ?1",
+            )?;
+
+            let result = stmt.query_row(params![pr_number], |row| {
+                Ok(PrAnalysisRow {
+                    pr_number: row.get(0)?,
+                    summary: row.get(1)?,
+                    risk_level: row.get(2)?,
+                    pr_type: row.get(3)?,
+                    review_notes: row.get(4)?,
+                    analyzed_at: row.get(5)?,
+                })
+            });
+
+            match result {
+                Ok(r) => Ok(Some(r)),
+                Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+                Err(e) => Err(e.into()),
+            }
+        })
+    }
+
     pub fn upsert_pull(&self, pr: &PullRequest) -> Result<()> {
         self.with_conn(|conn| {
             upsert_pull(conn, pr)?;

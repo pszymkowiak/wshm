@@ -173,10 +173,14 @@ fn resolve_provider(config: &Config) -> Result<ProviderConfig> {
             kind: ProviderKind::OpenAiCompat,
         }),
 
+        "local" => anyhow::bail!(
+            "Provider 'local' uses embedded inference — use LocalClient, not AiClient"
+        ),
+
         other => anyhow::bail!(
             "Unknown AI provider: '{other}'. Supported: anthropic, openai, google, \
              mistral, groq, deepseek, xai, together, fireworks, perplexity, cohere, \
-             openrouter, ollama, azure, custom"
+             openrouter, ollama, azure, local, custom"
         ),
     }
 }
@@ -336,6 +340,10 @@ impl AiClient {
 
         Ok(content.to_string())
     }
+}
+
+pub fn extract_json_from(text: &str) -> &str {
+    extract_json(text)
 }
 
 fn extract_json(text: &str) -> &str {

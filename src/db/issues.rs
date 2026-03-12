@@ -12,6 +12,8 @@ pub struct Issue {
     pub author: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+    pub reactions_plus1: u32,
+    pub reactions_total: u32,
 }
 
 use crate::db::Database;
@@ -51,15 +53,17 @@ impl Database {
 pub fn upsert_issue(conn: &Connection, issue: &Issue) -> Result<()> {
     let labels_json = serde_json::to_string(&issue.labels)?;
     conn.execute(
-        "INSERT INTO issues (number, title, body, state, labels, author, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+        "INSERT INTO issues (number, title, body, state, labels, author, created_at, updated_at, reactions_plus1, reactions_total)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
          ON CONFLICT(number) DO UPDATE SET
             title = excluded.title,
             body = excluded.body,
             state = excluded.state,
             labels = excluded.labels,
             author = excluded.author,
-            updated_at = excluded.updated_at",
+            updated_at = excluded.updated_at,
+            reactions_plus1 = excluded.reactions_plus1,
+            reactions_total = excluded.reactions_total",
         params![
             issue.number,
             issue.title,
@@ -69,6 +73,8 @@ pub fn upsert_issue(conn: &Connection, issue: &Issue) -> Result<()> {
             issue.author,
             issue.created_at,
             issue.updated_at,
+            issue.reactions_plus1,
+            issue.reactions_total,
         ],
     )?;
     Ok(())
@@ -76,7 +82,7 @@ pub fn upsert_issue(conn: &Connection, issue: &Issue) -> Result<()> {
 
 pub fn get_issue(conn: &Connection, number: u64) -> Result<Option<Issue>> {
     let mut stmt = conn.prepare(
-        "SELECT number, title, body, state, labels, author, created_at, updated_at
+        "SELECT number, title, body, state, labels, author, created_at, updated_at, reactions_plus1, reactions_total
          FROM issues WHERE number = ?1",
     )?;
 
@@ -91,6 +97,8 @@ pub fn get_issue(conn: &Connection, number: u64) -> Result<Option<Issue>> {
             author: row.get(5)?,
             created_at: row.get(6)?,
             updated_at: row.get(7)?,
+            reactions_plus1: row.get(8)?,
+            reactions_total: row.get(9)?,
         })
     });
 
@@ -103,7 +111,7 @@ pub fn get_issue(conn: &Connection, number: u64) -> Result<Option<Issue>> {
 
 pub fn get_open_issues(conn: &Connection) -> Result<Vec<Issue>> {
     let mut stmt = conn.prepare(
-        "SELECT number, title, body, state, labels, author, created_at, updated_at
+        "SELECT number, title, body, state, labels, author, created_at, updated_at, reactions_plus1, reactions_total
          FROM issues WHERE state = 'open' ORDER BY number DESC",
     )?;
 
@@ -119,6 +127,8 @@ pub fn get_open_issues(conn: &Connection) -> Result<Vec<Issue>> {
                 author: row.get(5)?,
                 created_at: row.get(6)?,
                 updated_at: row.get(7)?,
+                reactions_plus1: row.get(8)?,
+                reactions_total: row.get(9)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -128,7 +138,7 @@ pub fn get_open_issues(conn: &Connection) -> Result<Vec<Issue>> {
 
 pub fn get_untriaged_issues(conn: &Connection) -> Result<Vec<Issue>> {
     let mut stmt = conn.prepare(
-        "SELECT i.number, i.title, i.body, i.state, i.labels, i.author, i.created_at, i.updated_at
+        "SELECT i.number, i.title, i.body, i.state, i.labels, i.author, i.created_at, i.updated_at, i.reactions_plus1, i.reactions_total
          FROM issues i
          LEFT JOIN triage_results t ON i.number = t.issue_number
          WHERE i.state = 'open' AND t.issue_number IS NULL
@@ -147,6 +157,8 @@ pub fn get_untriaged_issues(conn: &Connection) -> Result<Vec<Issue>> {
                 author: row.get(5)?,
                 created_at: row.get(6)?,
                 updated_at: row.get(7)?,
+                reactions_plus1: row.get(8)?,
+                reactions_total: row.get(9)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -169,6 +181,8 @@ mod tests {
             author: Some("user".to_string()),
             created_at: "2026-01-01T00:00:00Z".to_string(),
             updated_at: "2026-01-01T00:00:00Z".to_string(),
+            reactions_plus1: 0,
+            reactions_total: 0,
         }
     }
 

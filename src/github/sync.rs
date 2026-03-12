@@ -64,8 +64,21 @@ async fn sync_issues(gh: &Client, db: &Database, since: Option<&str>) -> Result<
 
 async fn sync_pulls(gh: &Client, db: &Database) -> Result<()> {
     info!("Syncing pull requests...");
-    let pulls = gh.fetch_pulls().await?;
+    let mut pulls = gh.fetch_pulls().await?;
     let count = pulls.len();
+
+    // Fetch mergeable status individually (GitHub only returns it on single-PR endpoint)
+    info!("Fetching mergeable status for {count} PRs...");
+    for pr in &mut pulls {
+        if pr.mergeable.is_none() {
+            match gh.fetch_pr_mergeable(pr.number).await {
+                Ok(m) => pr.mergeable = m,
+                Err(e) => {
+                    tracing::warn!("Failed to fetch mergeable for PR #{}: {e}", pr.number);
+                }
+            }
+        }
+    }
 
     for pr in &pulls {
         db.upsert_pull(pr)?;

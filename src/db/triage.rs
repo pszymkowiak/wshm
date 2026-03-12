@@ -1,8 +1,20 @@
 use anyhow::Result;
 use rusqlite::params;
+use serde::{Deserialize, Serialize};
 
 use crate::ai::schemas::IssueClassification;
 use crate::db::Database;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TriageResultRow {
+    pub issue_number: u64,
+    pub category: String,
+    pub confidence: f64,
+    pub priority: Option<String>,
+    pub summary: Option<String>,
+    pub is_simple_fix: bool,
+    pub acted_at: String,
+}
 
 impl Database {
     pub fn upsert_triage_result(
@@ -42,6 +54,33 @@ impl Database {
                 ],
             )?;
             Ok(())
+        })
+    }
+
+    pub fn get_triage_result(&self, issue_number: u64) -> Result<Option<TriageResultRow>> {
+        self.with_conn(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT issue_number, category, confidence, priority, summary, is_simple_fix, acted_at
+                 FROM triage_results WHERE issue_number = ?1",
+            )?;
+
+            let result = stmt.query_row(params![issue_number], |row| {
+                Ok(TriageResultRow {
+                    issue_number: row.get(0)?,
+                    category: row.get(1)?,
+                    confidence: row.get(2)?,
+                    priority: row.get(3)?,
+                    summary: row.get(4)?,
+                    is_simple_fix: row.get(5)?,
+                    acted_at: row.get(6)?,
+                })
+            });
+
+            match result {
+                Ok(r) => Ok(Some(r)),
+                Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+                Err(e) => Err(e.into()),
+            }
         })
     }
 
