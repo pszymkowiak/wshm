@@ -101,6 +101,22 @@ pub struct DaemonArgs {
     /// Disable the HTTP webhook server (use with --poll)
     #[arg(long)]
     pub no_server: bool,
+
+    /// Install wshm daemon as a systemd service
+    #[arg(long)]
+    pub install: bool,
+
+    /// Uninstall the wshm systemd service
+    #[arg(long)]
+    pub uninstall: bool,
+
+    /// Override working directory for systemd (default: current dir)
+    #[arg(long)]
+    pub workdir: Option<String>,
+
+    /// Override repo for systemd (default: from config)
+    #[arg(long)]
+    pub repo: Option<String>,
 }
 
 #[derive(clap::Args)]

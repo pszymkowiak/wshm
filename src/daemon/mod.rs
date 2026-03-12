@@ -4,6 +4,7 @@ pub mod poller;
 pub mod processor;
 pub mod scheduler;
 pub mod server;
+pub mod systemd;
 
 use anyhow::Result;
 use std::sync::Arc;
