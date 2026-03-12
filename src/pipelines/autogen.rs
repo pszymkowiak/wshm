@@ -495,8 +495,9 @@ fn check_changes() -> Result<bool> {
 }
 
 fn commit_and_push(branch: &str, issue_number: u64) -> Result<()> {
+    // Only add tracked files that were modified (never add untracked files like credentials)
     let status = std::process::Command::new("git")
-        .args(["add", "-A"])
+        .args(["add", "-u"])
         .status()
         .context("Failed to git add")?;
     if !status.success() {
