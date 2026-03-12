@@ -356,7 +356,7 @@ fn resolve_tool(config: &Config, args: &FixArgs) -> AiTool {
 
 async fn run_claude_code(prompt: &str, model: Option<&str>) -> Result<ToolResult> {
     let mut cmd = tokio::process::Command::new("claude");
-    cmd.arg("-p").arg(prompt).arg("--yes");
+    cmd.arg("-p").arg(prompt).arg("--dangerously-skip-permissions");
 
     if let Some(model) = model {
         cmd.arg("--model").arg(model);
@@ -434,7 +434,7 @@ async fn run_in_podman(
     // Build the inner command
     match tool {
         AiTool::ClaudeCode { model } => {
-            cmd.arg("claude").arg("-p").arg(prompt).arg("--yes");
+            cmd.arg("claude").arg("-p").arg(prompt).arg("--dangerously-skip-permissions");
             if let Some(model) = model {
                 cmd.arg("--model").arg(model);
             }
