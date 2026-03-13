@@ -4,6 +4,20 @@ use crate::config::DatabaseExportConfig;
 
 use super::ExportSink;
 
+/// Validate that a table/index name is safe for SQL identifier use.
+/// Only allows alphanumeric characters and underscores.
+pub fn validate_identifier(name: &str) -> Result<()> {
+    if name.is_empty() {
+        anyhow::bail!("Table name cannot be empty");
+    }
+    if !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+        anyhow::bail!(
+            "Invalid table name '{name}': only alphanumeric characters and underscores are allowed"
+        );
+    }
+    Ok(())
+}
+
 #[cfg(feature = "export-elastic")]
 pub mod elastic;
 

@@ -5,18 +5,7 @@ use mysql_async::prelude::*;
 use crate::config::DatabaseExportConfig;
 use crate::export::{ExportEvent, ExportSink};
 
-/// Validate that a table/index name is safe for SQL identifier use.
-fn validate_identifier(name: &str) -> Result<()> {
-    if name.is_empty() {
-        anyhow::bail!("Table name cannot be empty");
-    }
-    if !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
-        anyhow::bail!(
-            "Invalid table name '{name}': only alphanumeric characters and underscores are allowed"
-        );
-    }
-    Ok(())
-}
+use super::validate_identifier;
 
 /// MySQL/MariaDB sink. Auto-creates the events table on first use.
 pub struct MysqlSink {

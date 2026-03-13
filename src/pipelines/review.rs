@@ -2,10 +2,9 @@ use anyhow::Result;
 use serde::Serialize;
 use tracing::info;
 
-use crate::ai::local::LocalClient;
+use crate::ai::backend::AiBackend;
 use crate::ai::prompts::inline_review;
 use crate::ai::schemas::{InlineComment, InlineReviewResult, ReviewStats};
-use crate::ai::AiClient;
 use crate::cli::ReviewArgs;
 use crate::config::Config;
 use crate::db::Database;
@@ -22,20 +21,6 @@ struct ReviewOutput {
     review: InlineReviewResult,
 }
 
-enum AiBackend {
-    Remote(AiClient),
-    Local(LocalClient),
-}
-
-impl AiBackend {
-    async fn review(&self, system: &str, user: &str) -> Result<InlineReviewResult> {
-        match self {
-            AiBackend::Remote(ai) => ai.complete(system, user).await,
-            AiBackend::Local(local) => local.complete(system, user),
-        }
-    }
-}
-
 /// Minimum number of files to trigger per-file chunking instead of full-diff mode.
 const CHUNK_THRESHOLD_FILES: usize = 2;
 
@@ -46,11 +31,7 @@ pub async fn run(
     args: &ReviewArgs,
     json: bool,
 ) -> Result<()> {
-    let ai = if config.ai.provider == "local" {
-        AiBackend::Local(LocalClient::new(&config.ai.model)?)
-    } else {
-        AiBackend::Remote(AiClient::new(config)?)
-    };
+    let ai = AiBackend::from_config(config, &config.ai.model)?;
 
     let pulls = if let Some(number) = args.pr {
         match db.get_pull(number)? {
@@ -113,7 +94,7 @@ pub async fn run(
         } else {
             // Small PR: send full diff in one shot
             let user_prompt = inline_review::build_user_prompt(&pr.title, pr_body, &diff);
-            ai.review(inline_review::SYSTEM, &user_prompt).await
+            ai.complete(inline_review::SYSTEM, &user_prompt).await
         };
 
         let result = match result {
@@ -196,7 +177,10 @@ async fn review_per_file(
 
         let user_prompt = inline_review::build_file_prompt(pr_title, pr_body, file_path, file_diff);
 
-        match ai.review(inline_review::SYSTEM, &user_prompt).await {
+        match ai
+            .complete::<InlineReviewResult>(inline_review::SYSTEM, &user_prompt)
+            .await
+        {
             Ok(result) => {
                 stats.errors += result.stats.errors;
                 stats.warnings += result.stats.warnings;

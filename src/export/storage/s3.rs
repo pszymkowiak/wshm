@@ -1,6 +1,5 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use chrono::Utc;
 
 use crate::config::StorageConfig;
 use crate::export::{ExportEvent, ExportSink};
@@ -42,15 +41,7 @@ impl S3Sink {
 #[async_trait]
 impl ExportSink for S3Sink {
     async fn emit(&self, event: &ExportEvent) -> Result<()> {
-        let date = Utc::now().format("%Y/%m/%d");
-        let key = format!(
-            "{}{}/{}-{}.json",
-            self.prefix,
-            date,
-            event.kind.as_str(),
-            event.timestamp.timestamp_millis()
-        );
-
+        let key = super::event_object_path(&self.prefix, event);
         let body = serde_json::to_vec(event)?;
 
         self.client

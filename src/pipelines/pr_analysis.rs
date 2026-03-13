@@ -2,10 +2,9 @@ use anyhow::Result;
 use serde::Serialize;
 use tracing::info;
 
-use crate::ai::local::LocalClient;
+use crate::ai::backend::AiBackend;
 use crate::ai::prompts::pr_analyze;
 use crate::ai::schemas::PrAnalysis;
-use crate::ai::AiClient;
 use crate::cli::PrArgs;
 use crate::config::Config;
 use crate::db::pulls::PullRequest;
@@ -21,20 +20,6 @@ struct PrAnalysisOutput {
     analysis: PrAnalysis,
 }
 
-enum AiBackend {
-    Remote(AiClient),
-    Local(LocalClient),
-}
-
-impl AiBackend {
-    async fn analyze(&self, system: &str, user: &str) -> Result<PrAnalysis> {
-        match self {
-            AiBackend::Remote(ai) => ai.complete(system, user).await,
-            AiBackend::Local(local) => local.complete(system, user),
-        }
-    }
-}
-
 pub async fn run(
     config: &Config,
     db: &Database,
@@ -44,11 +29,7 @@ pub async fn run(
     exporter: Option<&ExportManager>,
 ) -> Result<()> {
     let model = config.model_for("pr");
-    let ai = if config.ai.provider == "local" {
-        AiBackend::Local(LocalClient::new(model)?)
-    } else {
-        AiBackend::Remote(AiClient::with_model(config, model)?)
-    };
+    let ai = AiBackend::from_config(config, model)?;
 
     let pulls = if let Some(number) = args.pr {
         match db.get_pull(number)? {
@@ -135,7 +116,7 @@ async fn analyze_pr(
         ));
     }
 
-    let analysis: PrAnalysis = ai.analyze(pr_analyze::SYSTEM, &user_prompt).await?;
+    let analysis: PrAnalysis = ai.complete(pr_analyze::SYSTEM, &user_prompt).await?;
 
     // Store in DB
     let now = chrono::Utc::now().to_rfc3339();

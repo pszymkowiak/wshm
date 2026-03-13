@@ -1,8 +1,21 @@
 use anyhow::Result;
+use chrono::Utc;
 
 use crate::config::StorageConfig;
 
-use super::ExportSink;
+use super::{ExportEvent, ExportSink};
+
+/// Build the date-partitioned object path for an event.
+pub fn event_object_path(prefix: &str, event: &ExportEvent) -> String {
+    let date = Utc::now().format("%Y/%m/%d");
+    format!(
+        "{}{}/{}-{}.json",
+        prefix,
+        date,
+        event.kind.as_str(),
+        event.timestamp.timestamp_millis()
+    )
+}
 
 #[cfg(feature = "export-s3")]
 pub mod s3;

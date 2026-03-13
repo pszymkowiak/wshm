@@ -2,10 +2,9 @@ use anyhow::Result;
 use serde::Serialize;
 use tracing::info;
 
-use crate::ai::local::LocalClient;
+use crate::ai::backend::AiBackend;
 use crate::ai::prompts::issue_classify;
 use crate::ai::schemas::IssueClassification;
-use crate::ai::AiClient;
 use crate::cli::{FixArgs, TriageArgs};
 use crate::config::Config;
 use crate::db::issues::Issue;
@@ -22,20 +21,6 @@ struct TriageOutput {
     classification: IssueClassification,
 }
 
-enum AiBackend {
-    Remote(AiClient),
-    Local(LocalClient),
-}
-
-impl AiBackend {
-    async fn classify(&self, system: &str, user: &str) -> Result<IssueClassification> {
-        match self {
-            AiBackend::Remote(ai) => ai.complete(system, user).await,
-            AiBackend::Local(local) => local.complete(system, user),
-        }
-    }
-}
-
 pub async fn run(
     config: &Config,
     db: &Database,
@@ -45,11 +30,7 @@ pub async fn run(
     exporter: Option<&ExportManager>,
 ) -> Result<()> {
     let model = config.model_for("triage");
-    let backend = if config.ai.provider == "local" {
-        AiBackend::Local(LocalClient::new(model)?)
-    } else {
-        AiBackend::Remote(AiClient::with_model(config, model)?)
-    };
+    let backend = AiBackend::from_config(config, model)?;
 
     let issues = if let Some(number) = args.issue {
         match db.get_issue(number)? {
@@ -145,7 +126,7 @@ async fn triage_issue(
     }
 
     let classification: IssueClassification =
-        ai.classify(issue_classify::SYSTEM, &user_prompt).await?;
+        ai.complete(issue_classify::SYSTEM, &user_prompt).await?;
 
     // Store result in DB
     db.upsert_triage_result(&classification, issue.number)?;
