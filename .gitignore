@@ -5,3 +5,4 @@
 .wshm/state.db-wal
 .wshm/state.db-shm
 .env
+.fastembed_cache/
