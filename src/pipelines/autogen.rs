@@ -407,13 +407,17 @@ fn resolve_tool(config: &Config, args: &FixArgs) -> AiTool {
 // ── Tool runners ──────────────────────────────────────────────
 
 async fn run_claude_code(prompt: &str, model: Option<&str>) -> Result<ToolResult> {
+    info!("Starting claude -p (this may take a few minutes)...");
     let mut cmd = tokio::process::Command::new("claude");
     cmd.arg("-p")
         .arg(prompt)
-        .arg("--dangerously-skip-permissions");
+        .arg("--dangerously-skip-permissions")
+        .arg("--output-format")
+        .arg("text");
 
     if let Some(model) = model {
         cmd.arg("--model").arg(model);
+        info!("Using model: {model}");
     }
 
     let output = cmd
@@ -421,10 +425,18 @@ async fn run_claude_code(prompt: &str, model: Option<&str>) -> Result<ToolResult
         .await
         .context("Failed to run `claude`. Is Claude Code installed?")?;
 
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+    if output.status.success() {
+        info!("claude -p completed successfully ({} bytes output)", stdout.len());
+    } else {
+        tracing::error!("claude -p failed: {stderr}");
+    }
+
     Ok(ToolResult {
         success: output.status.success(),
-        output: String::from_utf8_lossy(&output.stdout).to_string()
-            + &String::from_utf8_lossy(&output.stderr),
+        output: stdout + &stderr,
     })
 }
 
@@ -587,6 +599,7 @@ const EXCLUDED_PATHS: &[&str] = &[
     "*.pem",
     "id_rsa",
     ".claude/",
+    ".fastembed_cache/",
 ];
 
 fn commit_and_push(branch: &str, issue_number: u64) -> Result<()> {
