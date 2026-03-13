@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.8.0](https://github.com/pszymkowiak/wshm/compare/v0.7.0...v0.8.0) (2026-03-13)
+
+
+### Features
+
+* add security audit + command injection scan + smoke test to CI ([8cfb444](https://github.com/pszymkowiak/wshm/commit/8cfb444fb3deff4ee7084fcf84d366d06009c2c4))
+* extend auto-fix to feature issues + detect claude CLI as auth fallback ([2cd940c](https://github.com/pszymkowiak/wshm/commit/2cd940c1a0979ce8528c7ee0da769598a6568b26))
+
+
+### Bug Fixes
+
+* add .fastembed_cache to gitignore ([3d2f783](https://github.com/pszymkowiak/wshm/commit/3d2f7832f1bd409cc39755b101e43f58b5cc35a0))
+* add logging to claude -p, exclude .fastembed_cache from commits ([ecdde2e](https://github.com/pszymkowiak/wshm/commit/ecdde2e3bc894564d806136ce5365f078c54d642))
+* auto-fix for issue [#38](https://github.com/pszymkowiak/wshm/issues/38) [wshm] ([#39](https://github.com/pszymkowiak/wshm/issues/39)) ([a5d3b51](https://github.com/pszymkowiak/wshm/commit/a5d3b516679da7b0a750240cc72eed417ab827ae))
+* cargo fmt ([b322ea2](https://github.com/pszymkowiak/wshm/commit/b322ea2846cfba5c564d6df0759980c919654bdb))
+
 ## [0.7.0](https://github.com/pszymkowiak/wshm/compare/v0.6.0...v0.7.0) (2026-03-12)
 
 
